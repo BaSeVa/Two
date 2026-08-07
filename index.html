@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Латотрон — симулятор игрового автомата</title>
+<style>
+  :root{
+    --bg-1:#0b0620;
+    --bg-2:#1a0f3d;
+    --neon-pink:#ff2ea6;
+    --neon-cyan:#22e5ff;
+    --neon-gold:#ffcf3d;
+    --neon-green:#33ff8c;
+    --panel:#150a30;
+    --panel-border:#3a1f80;
+    --text:#f1e9ff;
+    --text-dim:#9a8fc4;
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0;
+    min-height:100vh;
+    font-family:'Segoe UI',Verdana,Arial,sans-serif;
+    background:
+      radial-gradient(circle at 20% 10%, #2a1160 0%, transparent 40%),
+      radial-gradient(circle at 85% 85%, #0d2a4a 0%, transparent 45%),
+      linear-gradient(180deg,var(--bg-1),var(--bg-2));
+    color:var(--text);
+    display:flex;
+    justify-content:center;
+    padding:24px 12px 60px;
+  }
+  .wrap{
+    width:100%;
+    max-width:720px;
+  }
+  h1{
+    text-align:center;
+    font-size:clamp(28px,6vw,46px);
+    margin:0 0 4px;
+    letter-spacing:4px;
+    background:linear-gradient(90deg,var(--neon-pink),var(--neon-gold),var(--neon-cyan));
+    -webkit-background-clip:text;
+    background-clip:text;
+    color:transparent;
+    text-shadow:0 0 30px rgba(255,46,166,.25);
+    text-transform:uppercase;
+  }
+  .subtitle{
+    text-align:center;
+    color:var(--text-dim);
+    margin-bottom:22px;
+    font-size:14px;
+    letter-spacing:1px;
+  }
+  .machine{
+    background:linear-gradient(160deg,var(--panel),#0d0722);
+    border:2px solid var(--panel-border);
+    border-radius:26px;
+    padding:22px;
+    box-shadow:0 0 0 1px rgba(255,255,255,.03), 0 20px 60px rgba(0,0,0,.55), inset 0 0 40px rgba(120,60,255,.08);
+    position:relative;
+    overflow:hidden;
+  }
+  .machine::before{
+    content:"";
+    position:absolute;
+    inset:0;
+    background:repeating-linear-gradient(90deg, rgba(255,255,255,.02) 0 2px, transparent 2px 40px);
+    pointer-events:none;
+  }
+  .bulbs{
+    display:flex;
+    justify-content:space-between;
+    margin-bottom:14px;
+  }
+  .bulbs .row{display:flex;gap:8px;}
+  .bulb{
+    width:9px;height:9px;border-radius:50%;
+    background:var(--neon-gold);
+    box-shadow:0 0 8px var(--neon-gold);
+    animation:blink 1.2s infinite ease-in-out;
+  }
+  .bulb:nth-child(2n){animation-delay:.3s;background:var(--neon-pink);box-shadow:0 0 8px var(--neon-pink);}
+  .bulb:nth-child(3n){animation-delay:.6s;background:var(--neon-cyan);box-shadow:0 0 8px var(--neon-cyan);}
+  @keyframes blink{0%,100%{opacity:.3;}50%{opacity:1;}}
+
+  .stats-bar{
+    display:flex;
+    justify-content:space-between;
+    gap:10px;
+    flex-wrap:wrap;
+    background:#0a0620;
+    border:1px solid var(--panel-border);
+    border-radius:14px;
+    padding:12px 16px;
+    margin-bottom:16px;
+  }
+  .stat{
+    text-align:center;
+    flex:1;
+    min-width:80px;
+  }
+  .stat .label{
+    font-size:11px;
+    color:var(--text-dim);
+    text-transform:uppercase;
+    letter-spacing:1px;
+  }
+  .stat .value{
+    font-size:19px;
+    font-weight:700;
+    font-variant-numeric:tabular-nums;
+  }
+  .stat.balance .value{color:var(--neon-gold);text-shadow:0 0 12px rgba(255,207,61,.5);}
+  .stat.win .value{color:var(--neon-green);text-shadow:0 0 12px rgba(51,255,140,.5);}
+  .stat.jackpot .value{color:var(--neon-pink);text-shadow:0 0 12px rgba(255,46,166,.5);}
+
+  .reels{
+    display:grid;
+    grid-template-columns:repeat(5,1fr);
+    gap:8px;
+    background:#05030f;
+    border:3px solid var(--panel-border);
+    border-radius:18px;
+    padding:12px;
+    margin-bottom:16px;
+    box-shadow:inset 0 0 30px rgba(0,0,0,.8);
+  }
+  .reel{
+    position:relative;
+    height:260px;
+    background:linear-gradient(180deg,#150a30,#0a0620 50%,#150a30);
+    border-radius:10px;
+    overflow:hidden;
+    border:1px solid #2a1a5c;
+  }
+  .reel::before,.reel::after{
+    content:"";
+    position:absolute;
+    left:0;right:0;height:60px;
+    z-index:3;
+    pointer-events:none;
+  }
+  .reel::before{top:0;background:linear-gradient(180deg,#05030f,transparent);}
+  .reel::after{bottom:0;background:linear-gradient(0deg,#05030f,transparent);}
+  .strip{
+    position:absolute;
+    left:0;right:0;top:0;
+    display:flex;
+    flex-direction:column;
+    will-change:transform;
+  }
+  .cell{
+    height:86.66px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:44px;
+    filter:drop-shadow(0 0 6px rgba(255,255,255,.15));
+  }
+  .payline{
+    position:absolute;
+    left:0;right:0;
+    top:50%;
+    height:2px;
+    background:linear-gradient(90deg,transparent,var(--neon-cyan),transparent);
+    transform:translateY(-1px);
+    opacity:.5;
+    z-index:2;
+    pointer-events:none;
+  }
+  .reels.winning .reel{
+    animation:pulseWin .5s ease-in-out infinite;
+  }
+  @keyframes pulseWin{
+    0%,100%{box-shadow:inset 0 0 10px rgba(0,0,0,.6);}
+    50%{box-shadow:0 0 24px var(--neon-gold), inset 0 0 10px rgba(0,0,0,.6);}
+  }
+
+  .message{
+    text-align:center;
+    min-height:30px;
+    font-size:18px;
+    font-weight:700;
+    margin-bottom:14px;
+    color:var(--neon-green);
+    text-shadow:0 0 12px rgba(51,255,140,.5);
+    transition:opacity .2s;
+  }
+
+  .controls{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    flex-wrap:wrap;
+    justify-content:center;
+  }
+  .bet-control{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    background:#0a0620;
+    border:1px solid var(--panel-border);
+    border-radius:12px;
+    padding:8px 12px;
+  }
+  .bet-control .label{font-size:12px;color:var(--text-dim);}
+  .bet-control button{
+    width:30px;height:30px;
+    border-radius:8px;
+    border:1px solid var(--panel-border);
+    background:#1a0f3d;
+    color:var(--text);
+    font-size:16px;
+    cursor:pointer;
+  }
+  .bet-control button:hover{background:#2a1a5c;}
+  .bet-value{
+    min-width:56px;
+    text-align:center;
+    font-weight:700;
+    color:var(--neon-gold);
+  }
+  .spin-btn{
+    position:relative;
+    border:none;
+    border-radius:50%;
+    width:86px;height:86px;
+    background:radial-gradient(circle at 35% 30%, #ff69c8, var(--neon-pink) 60%, #a1147a 100%);
+    color:#fff;
+    font-size:15px;
+    font-weight:800;
+    letter-spacing:1px;
+    cursor:pointer;
+    box-shadow:0 0 20px rgba(255,46,166,.6), 0 6px 0 #7a0f5c;
+    transition:transform .08s, box-shadow .2s;
+    text-transform:uppercase;
+  }
+  .spin-btn:active{transform:translateY(4px);box-shadow:0 0 20px rgba(255,46,166,.6), 0 2px 0 #7a0f5c;}
+  .spin-btn:disabled{
+    filter:grayscale(.6);
+    cursor:not-allowed;
+    box-shadow:none;
+    transform:translateY(4px);
+  }
+  .toggle-btn{
+    border-radius:12px;
+    border:1px solid var(--panel-border);
+    background:#1a0f3d;
+    color:var(--text);
+    padding:10px 16px;
+    font-size:13px;
+    font-weight:700;
+    cursor:pointer;
+    letter-spacing:.5px;
+  }
+  .toggle-btn.active{
+    background:linear-gradient(90deg,var(--neon-cyan),#1596b8);
+    color:#001a1f;
+    border-color:var(--neon-cyan);
+  }
+  .toggle-btn:hover{filter:brightness(1.1);}
+
+  .paytable{
+    margin-top:20px;
+    background:var(--panel);
+    border:1px solid var(--panel-border);
+    border-radius:16px;
+    padding:16px 18px;
+  }
+  .paytable h2{
+    margin:0 0 10px;
+    font-size:15px;
+    letter-spacing:1px;
+    color:var(--neon-cyan);
+    text-transform:uppercase;
+  }
+  .paytable-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(120px,1fr));
+    gap:8px;
+  }
+  .paytable-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    background:#0a0620;
+    border-radius:10px;
+    padding:6px 10px;
+    font-size:13px;
+  }
+  .paytable-row .sym{font-size:20px;}
+  .paytable-row .mult{color:var(--neon-gold);font-weight:700;}
+
+  footer{
+    text-align:center;
+    color:var(--text-dim);
+    font-size:11px;
+    margin-top:18px;
+    line-height:1.6;
+  }
+
+  .flash{
+    position:fixed;
+    inset:0;
+    pointer-events:none;
+    background:radial-gradient(circle,rgba(255,207,61,.35),transparent 60%);
+    opacity:0;
+    z-index:50;
+  }
+  .flash.show{
+    animation:flashPop .6s ease-out;
+  }
+  @keyframes flashPop{
+    0%{opacity:0;}
+    20%{opacity:1;}
+    100%{opacity:0;}
+  }
+
+  @media (max-width:520px){
+    .reel{height:190px;}
+    .cell{height:63.3px;font-size:32px;}
+    .spin-btn{width:74px;height:74px;font-size:13px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="flash" id="flash"></div>
+
+<div class="wrap">
+  <h1>Латотрон</h1>
+  <p class="subtitle">неоновый симулятор игрового автомата · это игра понарошку, реальные деньги не используются</p>
+
+  <div class="machine">
+    <div class="bulbs">
+      <div class="row" id="bulbsLeft"></div>
+      <div class="row" id="bulbsRight"></div>
+    </div>
+
+    <div class="stats-bar">
+      <div class="stat balance">
+        <div class="label">Баланс</div>
+        <div class="value" id="balance">1000</div>
+      </div>
+      <div class="stat win">
+        <div class="label">Последний выигрыш</div>
+        <div class="value" id="lastWin">0</div>
+      </div>
+      <div class="stat jackpot">
+        <div class="label">Джекпот</div>
+        <div class="value" id="jackpot">5000</div>
+      </div>
+    </div>
+
+    <div class="reels" id="reels">
+      <div class="payline"></div>
+      <div class="reel"><div class="strip" id="strip0"></div></div>
+      <div class="reel"><div class="strip" id="strip1"></div></div>
+      <div class="reel"><div class="strip" id="strip2"></div></div>
+      <div class="reel"><div class="strip" id="strip3"></div></div>
+      <div class="reel"><div class="strip" id="strip4"></div></div>
+    </div>
+
+    <div class="message" id="message">Удачи! Нажми СПИН.</div>
+
+    <div class="controls">
+      <div class="bet-control">
+        <span class="label">Ставка</span>
+        <button id="betMinus">−</button>
+        <span class="bet-value" id="betValue">10</span>
+        <button id="betPlus">+</button>
+      </div>
+      <button class="spin-btn" id="spinBtn">СПИН</button>
+      <button class="toggle-btn" id="autoBtn">АВТО: ВЫКЛ</button>
+      <button class="toggle-btn" id="soundBtn">🔊 ЗВУК</button>
+      <button class="toggle-btn" id="resetBtn">СБРОС</button>
+    </div>
+  </div>
+
+  <div class="paytable">
+    <h2>Таблица выплат (за 3+ совпадения по центральной линии)</h2>
+    <div class="paytable-grid" id="paytableGrid"></div>
+    <p style="color:var(--text-dim);font-size:12px;margin-top:10px;">
+      5 × 7️⃣ на линии = ДЖЕКПОТ. Ставка автоматически списывается перед каждым спином.
+    </p>
+  </div>
+
+  <footer>
+    Всего спинов: <span id="totalSpins">0</span> ·
+    Всего выиграно: <span id="totalWon">0</span> ·
+    Крупнейший выигрыш: <span id="biggestWin">0</span><br>
+    Латотрон — вымышленный автомат для развлечения. Прогресс сохраняется в этом браузере.
+  </footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ---- Symbol config: [emoji, weight, payout multiplier for 3/4/5 matches] ----
+  const SYMBOLS = [
+    { key:"cherry",  emoji:"🍒", weight:30, pay:[2, 5, 10]   },
+    { key:"lemon",   emoji:"🍋", weight:26, pay:[2, 6, 12]   },
+    { key:"grape",   emoji:"🍇", weight:22, pay:[3, 8, 16]   },
+    { key:"bell",    emoji:"🔔", weight:16, pay:[5, 15, 30]  },
+    { key:"clover",  emoji:"🍀", weight:12, pay:[8, 20, 45]  },
+    { key:"star",    emoji:"⭐", weight:8,  pay:[12, 35, 80]  },
+    { key:"diamond", emoji:"💎", weight:5,  pay:[20, 60, 150] },
+    { key:"seven",   emoji:"7️⃣", weight:2,  pay:[50, 200, 1000] }
+  ];
+  const TOTAL_WEIGHT = SYMBOLS.reduce((s,x)=>s+x.weight,0);
+  const REEL_COUNT = 5;
+  const VISIBLE_ROWS = 3;
+  const CENTER_ROW = 1;
+  const CELL_H = 86.66;
+
+  function pickSymbol(){
+    let r = Math.random() * TOTAL_WEIGHT;
+    for(const s of SYMBOLS){
+      if(r < s.weight) return s;
+      r -= s.weight;
+    }
+    return SYMBOLS[0];
+  }
+
+  // ---- State ----
+  const state = {
+    balance: 1000,
+    bet: 10,
+    jackpot: 5000,
+    spinning: false,
+    auto: false,
+    sound: true,
+    totalSpins: 0,
+    totalWon: 0,
+    biggestWin: 0
+  };
+
+  const SAVE_KEY = "latotron_save_v1";
+  function save(){
+    try{
+      localStorage.setItem(SAVE_KEY, JSON.stringify(state));
+    }catch(e){}
+  }
+  function load(){
+    try{
+      const raw = localStorage.getItem(SAVE_KEY);
+      if(raw){
+        const data = JSON.parse(raw);
+        Object.assign(state, data);
+        state.spinning = false;
+      }
+    }catch(e){}
+  }
+  load();
+
+  // ---- DOM refs ----
+  const el = {
+    balance: document.getElementById("balance"),
+    lastWin: document.getElementById("lastWin"),
+    jackpot: document.getElementById("jackpot"),
+    betValue: document.getElementById("betValue"),
+    message: document.getElementById("message"),
+    spinBtn: document.getElementById("spinBtn"),
+    autoBtn: document.getElementById("autoBtn"),
+    soundBtn: document.getElementById("soundBtn"),
+    resetBtn: document.getElementById("resetBtn"),
+    betMinus: document.getElementById("betMinus"),
+    betPlus: document.getElementById("betPlus"),
+    reels: document.getElementById("reels"),
+    totalSpins: document.getElementById("totalSpins"),
+    totalWon: document.getElementById("totalWon"),
+    biggestWin: document.getElementById("biggestWin"),
+    flash: document.getElementById("flash")
+  };
+
+  const strips = [];
+  for(let i=0;i<REEL_COUNT;i++) strips.push(document.getElementById("strip"+i));
+
+  // build bulbs
+  const bulbsLeft = document.getElementById("bulbsLeft");
+  const bulbsRight = document.getElementById("bulbsRight");
+  for(let i=0;i<6;i++){
+    const b1 = document.createElement("div"); b1.className="bulb"; bulbsLeft.appendChild(b1);
+    const b2 = document.createElement("div"); b2.className="bulb"; bulbsRight.appendChild(b2);
+  }
+
+  // build paytable
+  const paytableGrid = document.getElementById("paytableGrid");
+  SYMBOLS.forEach(s=>{
+    const row = document.createElement("div");
+    row.className = "paytable-row";
+    row.innerHTML = `<span class="sym">${s.emoji}</span><span class="mult">×${s.pay[0]} / ×${s.pay[1]} / ×${s.pay[2]}</span>`;
+    paytableGrid.appendChild(row);
+  });
+
+  // ---- Audio (simple WebAudio beeps, no external files) ----
+  let audioCtx = null;
+  function ensureAudio(){
+    if(!audioCtx){
+      try{ audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }catch(e){}
+    }
+  }
+  function beep(freq, dur, type, vol){
+    if(!state.sound) return;
+    ensureAudio();
+    if(!audioCtx) return;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = type || "square";
+    osc.frequency.value = freq;
+    gain.gain.value = vol || 0.05;
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    const now = audioCtx.currentTime;
+    gain.gain.setValueAtTime(gain.gain.value, now);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+    osc.start(now);
+    osc.stop(now + dur);
+  }
+  function sfxSpin(){ beep(220, 0.08, "square", 0.03); }
+  function sfxStop(i){ beep(320 + i*40, 0.12, "triangle", 0.05); }
+  function sfxWin(){ beep(660, 0.15, "sawtooth", 0.06); setTimeout(()=>beep(880,0.18,"sawtooth",0.06),120); }
+  function sfxJackpot(){
+    [523,659,784,1046,1318].forEach((f,i)=> setTimeout(()=>beep(f,0.25,"sawtooth",0.07), i*130));
+  }
+
+  // ---- Rendering reels ----
+  // each strip holds a buffer of symbols; we render extra rows above/below for spin illusion
+  const BUFFER_ABOVE = 6;
+  const BUFFER_BELOW = 2;
+  const reelResults = []; // current visible center-aligned 3 symbols per reel
+
+  function randomStripSymbols(count){
+    const arr = [];
+    for(let i=0;i<count;i++) arr.push(pickSymbol());
+    return arr;
+  }
+
+  function renderStrip(stripEl, symbols){
+    stripEl.innerHTML = "";
+    symbols.forEach(s=>{
+      const cell = document.createElement("div");
+      cell.className = "cell";
+      cell.textContent = s.emoji;
+      stripEl.appendChild(cell);
+    });
+  }
+
+  function initReels(){
+    for(let r=0;r<REEL_COUNT;r++){
+      const symbols = randomStripSymbols(VISIBLE_ROWS);
+      renderStrip(strips[r], symbols);
+      strips[r].style.transform = "translateY(0px)";
+      reelResults[r] = symbols;
+    }
+  }
+  initReels();
+
+  function formatNum(n){
+    return Math.round(n).toLocaleString("ru-RU");
+  }
+
+  function updateUI(){
+    el.balance.textContent = formatNum(state.balance);
+    el.jackpot.textContent = formatNum(state.jackpot);
+    el.betValue.textContent = formatNum(state.bet);
+    el.totalSpins.textContent = formatNum(state.totalSpins);
+    el.totalWon.textContent = formatNum(state.totalWon);
+    el.biggestWin.textContent = formatNum(state.biggestWin);
+    el.autoBtn.textContent = "АВТО: " + (state.auto ? "ВКЛ" : "ВЫКЛ");
+    el.autoBtn.classList.toggle("active", state.auto);
+    el.soundBtn.textContent = state.sound ? "🔊 ЗВУК" : "🔇 ЗВУК";
+    el.soundBtn.classList.toggle("active", state.sound);
+    el.spinBtn.disabled = state.spinning || state.balance < state.bet;
+  }
+
+  function flashScreen(){
+    el.flash.classList.remove("show");
+    void el.flash.offsetWidth;
+    el.flash.classList.add("show");
+  }
+
+  function setMessage(text, color){
+    el.message.textContent = text;
+    el.message.style.color = color || "";
+  }
+
+  // ---- Spin animation for one reel ----
+  function spinReel(reelIndex, finalSymbol, duration){
+    return new Promise(resolve=>{
+      const stripEl = strips[reelIndex];
+      const spinSymbols = randomStripSymbols(14);
+      // ensure the final 3 visible rows are: random, finalSymbol (center), random
+      const above = pickSymbol();
+      const below = pickSymbol();
+      const full = spinSymbols.concat([above, finalSymbol, below]);
+      renderStrip(stripEl, full);
+
+      const totalCells = full.length;
+      const finalCenterIndex = totalCells - 2; // index of finalSymbol
+      const targetOffset = -(finalCenterIndex - CENTER_ROW) * CELL_H;
+
+      stripEl.style.transition = "none";
+      stripEl.style.transform = "translateY(0px)";
+      // force reflow
+      void stripEl.offsetHeight;
+
+      stripEl.style.transition = `transform ${duration}ms cubic-bezier(.15,.85,.35,1)`;
+      requestAnimationFrame(()=>{
+        stripEl.style.transform = `translateY(${targetOffset}px)`;
+      });
+
+      setTimeout(()=>{
+        sfxStop(reelIndex);
+        resolve();
+      }, duration);
+    });
+  }
+
+  // ---- Payout evaluation on the center line ----
+  function evaluate(centerLine){
+    // centerLine: array of 5 symbol objects
+    const first = centerLine[0];
+    let matchCount = 1;
+    for(let i=1;i<REEL_COUNT;i++){
+      if(centerLine[i].key === first.key) matchCount++;
+      else break;
+    }
+    let winAmount = 0;
+    let isJackpot = false;
+    if(matchCount >= 3){
+      const payIdx = matchCount - 3; // 0,1,2 for 3,4,5
+      const mult = first.pay[Math.min(payIdx, first.pay.length-1)];
+      winAmount = state.bet * mult;
+      if(first.key === "seven" && matchCount === 5){
+        winAmount += state.jackpot;
+        isJackpot = true;
+      }
+    }
+    return { matchCount, symbol:first, winAmount, isJackpot };
+  }
+
+  // ---- Main spin sequence ----
+  async function doSpin(){
+    if(state.spinning) return;
+    if(state.balance < state.bet){
+      setMessage("Недостаточно средств. Нажми СБРОС.", "var(--neon-pink)");
+      return;
+    }
+    state.spinning = true;
+    el.reels.classList.remove("winning");
+    updateUI();
+    setMessage("Крутим...", "");
+    sfxSpin();
+
+    state.balance -= state.bet;
+    state.jackpot += Math.max(1, Math.round(state.bet * 0.05));
+    updateUI();
+    save();
+
+    // pick final results for each reel (3 visible rows each)
+    const finals = [];
+    for(let r=0;r<REEL_COUNT;r++){
+      finals.push([pickSymbol(), pickSymbol(), pickSymbol()]);
+    }
+
+    const promises = [];
+    for(let r=0;r<REEL_COUNT;r++){
+      const duration = 900 + r*260;
+      promises.push(spinReel(r, finals[r][CENTER_ROW], duration));
+    }
+    await Promise.all(promises);
+
+    // after animation completes, re-render final static strip (above, center, below) w/o transform quirks
+    for(let r=0;r<REEL_COUNT;r++){
+      renderStrip(strips[r], finals[r]);
+      strips[r].style.transition = "none";
+      strips[r].style.transform = "translateY(0px)";
+      reelResults[r] = finals[r];
+    }
+
+    const centerLine = finals.map(f=>f[CENTER_ROW]);
+    const result = evaluate(centerLine);
+
+    state.totalSpins++;
+
+    if(result.winAmount > 0){
+      state.balance += result.winAmount;
+      state.totalWon += result.winAmount;
+      if(result.winAmount > state.biggestWin) state.biggestWin = result.winAmount;
+      el.lastWin.textContent = formatNum(result.winAmount);
+      el.reels.classList.add("winning");
+      flashScreen();
+
+      if(result.isJackpot){
+        setMessage(`🎉 ДЖЕКПОТ! +${formatNum(result.winAmount)} 🎉`, "var(--neon-pink)");
+        sfxJackpot();
+        state.jackpot = 5000;
+      } else {
+        setMessage(`Выигрыш! ${result.matchCount}× ${result.symbol.emoji} = +${formatNum(result.winAmount)}`, "var(--neon-green)");
+        sfxWin();
+      }
+    } else {
+      el.lastWin.textContent = "0";
+      setMessage("Не повезло. Ещё раз?", "var(--text-dim)");
+    }
+
+    state.spinning = false;
+    updateUI();
+    save();
+
+    if(state.auto && state.balance >= state.bet){
+      setTimeout(doSpin, 900);
+    } else if(state.auto){
+      state.auto = false;
+      updateUI();
+      setMessage("Авто-спин остановлен: недостаточно средств.", "var(--neon-pink)");
+    }
+  }
+
+  // ---- Controls ----
+  el.spinBtn.addEventListener("click", ()=>{ ensureAudio(); doSpin(); });
+  el.betMinus.addEventListener("click", ()=>{
+    state.bet = Math.max(10, state.bet - 10);
+    updateUI(); save();
+  });
+  el.betPlus.addEventListener("click", ()=>{
+    state.bet = Math.min(500, state.bet + 10);
+    updateUI(); save();
+  });
+  el.autoBtn.addEventListener("click", ()=>{
+    state.auto = !state.auto;
+    updateUI(); save();
+    if(state.auto && !state.spinning){ ensureAudio(); doSpin(); }
+  });
+  el.soundBtn.addEventListener("click", ()=>{
+    state.sound = !state.sound;
+    updateUI(); save();
+  });
+  el.resetBtn.addEventListener("click", ()=>{
+    if(!confirm("Сбросить баланс и статистику?")) return;
+    state.balance = 1000;
+    state.bet = 10;
+    state.jackpot = 5000;
+    state.auto = false;
+    state.totalSpins = 0;
+    state.totalWon = 0;
+    state.biggestWin = 0;
+    el.lastWin.textContent = "0";
+    setMessage("Баланс сброшен. Удачи!", "");
+    updateUI(); save();
+  });
+
+  document.addEventListener("keydown", (e)=>{
+    if(e.code === "Space"){
+      e.preventDefault();
+      ensureAudio();
+      doSpin();
+    }
+  });
+
+  updateUI();
+})();
+</script>
+
+</body>
+</html>
