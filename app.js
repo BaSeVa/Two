@@ -32,9 +32,23 @@ const TRACK_NAMES = [
 ];
 
 const TICKS_PER_LAP = 220;
-const PIT_DURATION_TICKS = 55;
 const MAX_TICKS_SAFETY = 200000;
 const POINTS_TABLE = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1];
+
+// Pit lane speed limit as a fraction of racing pace (real F1 pit limit is far
+// slower than track speed, e.g. ~60km/h vs ~300km/h) — driving the lane at
+// this pace, plus a stationary tire-change, is what makes up a pit stop.
+const PIT_LANE_SPEED_LIMIT = 0.42;
+const PIT_STOP_MIN_TICKS = 16;
+const PIT_STOP_MAX_TICKS = 26;
+const SLOW_PIT_STOP_CHANCE = 0.12;
+
+const TIRE_COMPOUNDS = {
+  soft: { code: "S", name: "Мягкая", color: "#ff3b3b", text: "#ffffff", pace: 1.035, wearMul: 1.55 },
+  medium: { code: "M", name: "Средняя", color: "#f5c518", text: "#111111", pace: 1.0, wearMul: 1.0 },
+  hard: { code: "H", name: "Жёсткая", color: "#eef0f4", text: "#111111", pace: 0.975, wearMul: 0.68 },
+  wet: { code: "W", name: "Дождевая", color: "#1e90ff", text: "#ffffff", pace: 0.97, wearMul: 1.0 },
+};
 
 let config = null;
 let roster = null;
@@ -274,23 +288,29 @@ function buildTrack() {
   svg.appendChild(carGroup);
   svgEls.carGroup = carGroup;
 
+  const lengthRatio = svgEls.pitTotalLength / svgEls.totalLength;
+  const distanceTicksAtRacePace = lengthRatio * TICKS_PER_LAP;
+  const driveTicks = Math.max(20, Math.round(distanceTicksAtRacePace / PIT_LANE_SPEED_LIMIT));
+
   state.track = {
     name: pickTrackName(),
     pitEntryFrac: entryFrac,
     pitExitFrac: exitFrac,
+    pitDriveHalfTicks: Math.round(driveTicks / 2),
   };
   trackNameEl.textContent = state.track.name;
 
   state.cars.forEach((car) => {
     const g = createSvgEl("g", { id: car.id });
     g.style.opacity = "1";
-    const circle = createSvgEl("circle", { r: 7, fill: car.color, stroke: "#0c0e14", "stroke-width": 1.5 });
+    const circle = createSvgEl("circle", { r: 7, fill: car.color, stroke: TIRE_COMPOUNDS[car.compound].color, "stroke-width": 2 });
     g.appendChild(circle);
     const label = createSvgEl("text", { "text-anchor": "middle", dy: -10, "font-size": 8, fill: "#e8eaf0" });
     label.textContent = car.number;
     g.appendChild(label);
     carGroup.appendChild(g);
     car.svgGroup = g;
+    car.svgCircle = circle;
     updateCarPosition(car, 0);
   });
 }
@@ -303,10 +323,12 @@ function raceFieldDefaults() {
     lap: 0,
     tireWear: 0,
     pitStops: 0,
-    pitTicksLeft: 0,
     pitting: false,
+    pitPhase: null,
+    pitPhaseTicksLeft: 0,
+    pitStopTicks: 0,
+    pitLaneFrac: 0,
     wantsPit: false,
-    pitProgress: 0,
     pitEntryLapFloor: 0,
     prevFrac: 0,
     finished: false,
@@ -314,7 +336,19 @@ function raceFieldDefaults() {
     finishTick: null,
     finishPos: null,
     svgGroup: null,
+    svgCircle: null,
   };
+}
+
+function pickStartingCompound() {
+  return Math.random() < 0.5 ? "medium" : "soft";
+}
+
+function pickNextCompound(car) {
+  if (state.weather === "rain") return "wet";
+  const remainingFrac = 1 - car.lap / state.totalLaps;
+  const pool = remainingFrac > 0.45 ? ["soft", "medium", "medium", "hard"] : ["medium", "hard", "hard"];
+  return pool[Math.floor(Math.random() * pool.length)];
 }
 
 function makeCars(teamsCount) {
@@ -335,6 +369,7 @@ function makeCars(teamsCount) {
         reliability: 1 - rand(0.000002, 0.000006),
         stintLaps: rand(6, 13),
         pitThreshold: rand(0.62, 0.9),
+        compound: pickStartingCompound(),
         seasonPoints: 0,
         wins: 0,
         podiums: 0,
@@ -352,6 +387,7 @@ function resetCarForRace(car) {
   Object.assign(car, raceFieldDefaults());
   car.stintLaps = rand(6, 13);
   car.pitThreshold = rand(0.62, 0.9);
+  car.compound = pickStartingCompound();
 }
 
 /* ---------- Config / season lifecycle ---------- */
@@ -438,8 +474,14 @@ function simulateTick() {
     state.weatherTicksLeft = Math.floor(rand(350, 750));
     if (state.weather === "rain" && !wasRain) {
       logEvent("🌧️ Начинается дождь! Сцепление с трассой ухудшается.", "weather");
+      state.cars.forEach((c) => {
+        if (!c.finished && !c.dnf && !c.pitting && c.compound !== "wet") c.wantsPit = true;
+      });
     } else if (state.weather === "dry" && wasRain) {
       logEvent("☀️ Дождь прекратился, трасса подсыхает.", "weather");
+      state.cars.forEach((c) => {
+        if (!c.finished && !c.dnf && !c.pitting && c.compound === "wet") c.wantsPit = true;
+      });
     }
   }
 
@@ -447,15 +489,38 @@ function simulateTick() {
 
   activeCars.forEach((car) => {
     if (car.pitting) {
-      car.pitTicksLeft -= 1;
-      car.pitProgress = 1 - Math.max(car.pitTicksLeft, 0) / PIT_DURATION_TICKS;
-      if (car.pitTicksLeft <= 0) {
-        car.pitting = false;
-        car.pitProgress = 0;
-        car.progress = car.pitEntryLapFloor + 1 + state.track.pitExitFrac;
-        car.lap = Math.floor(car.progress);
-        car.prevFrac = car.progress - car.lap;
-        logEvent(`🔧 ${car.name} (${car.team}) выезжает из боксов на новых шинах.`, "pit");
+      car.pitPhaseTicksLeft -= 1;
+      const halfTicks = state.track.pitDriveHalfTicks;
+
+      if (car.pitPhase === "in") {
+        car.pitLaneFrac = 0.5 * (1 - Math.max(car.pitPhaseTicksLeft, 0) / halfTicks);
+        if (car.pitPhaseTicksLeft <= 0) {
+          car.pitPhase = "stopped";
+          car.pitPhaseTicksLeft = car.pitStopTicks;
+          car.pitLaneFrac = 0.5;
+          const oldCompound = TIRE_COMPOUNDS[car.compound];
+          car.compound = pickNextCompound(car);
+          car.tireWear = 0;
+          if (car.svgCircle) car.svgCircle.setAttribute("stroke", TIRE_COMPOUNDS[car.compound].color);
+          logEvent(`🛞 ${car.name}: механики меняют шины ${oldCompound.code} → ${TIRE_COMPOUNDS[car.compound].code}.`, "pit");
+        }
+      } else if (car.pitPhase === "stopped") {
+        if (car.pitPhaseTicksLeft <= 0) {
+          car.pitPhase = "out";
+          car.pitPhaseTicksLeft = halfTicks;
+          logEvent(`🚦 ${car.name} покидает бокс под ограничением скорости пит-лейн.`, "pit");
+        }
+      } else {
+        car.pitLaneFrac = 0.5 + 0.5 * (1 - Math.max(car.pitPhaseTicksLeft, 0) / halfTicks);
+        if (car.pitPhaseTicksLeft <= 0) {
+          car.pitting = false;
+          car.pitPhase = null;
+          car.pitLaneFrac = 0;
+          car.progress = car.pitEntryLapFloor + 1 + state.track.pitExitFrac;
+          car.lap = Math.floor(car.progress);
+          car.prevFrac = car.progress - car.lap;
+          logEvent(`🏁 ${car.name} (${car.team}) возвращается на трассу.`, "pit");
+        }
       }
       return;
     }
@@ -466,14 +531,20 @@ function simulateTick() {
       return;
     }
 
+    const compound = TIRE_COMPOUNDS[car.compound];
+    const wetMismatch = state.weather === "rain" && car.compound !== "wet";
+    const dryMismatch = state.weather !== "rain" && car.compound === "wet";
+    const paceMismatchFactor = wetMismatch ? 0.72 : dryMismatch ? 0.85 : 1;
+    const wearMismatchFactor = wetMismatch ? 1.7 : dryMismatch ? 1.5 : 1;
+
     const base = 1 / TICKS_PER_LAP;
     const wearPenalty = 1 - car.tireWear * 0.35;
     const weatherFactor = weatherSpeedFactor(car);
     const noise = 1 + gaussian() * (0.12 * (1.15 - car.consistency));
-    const speed = base * car.skill * wearPenalty * weatherFactor * Math.max(noise, 0.4);
+    const speed = base * car.skill * wearPenalty * weatherFactor * compound.pace * paceMismatchFactor * Math.max(noise, 0.4);
 
     car.progress += speed;
-    const wearRate = (base / car.stintLaps) * (state.weather === "rain" ? 1.4 : 1);
+    const wearRate = (base / car.stintLaps) * compound.wearMul * wearMismatchFactor;
     car.tireWear = Math.min(1, car.tireWear + wearRate);
 
     const newLap = Math.floor(car.progress);
@@ -487,12 +558,17 @@ function simulateTick() {
     if (car.wantsPit && car.prevFrac < state.track.pitEntryFrac && frac >= state.track.pitEntryFrac) {
       car.pitting = true;
       car.wantsPit = false;
-      car.pitTicksLeft = PIT_DURATION_TICKS;
-      car.pitProgress = 0;
+      car.pitPhase = "in";
+      car.pitPhaseTicksLeft = state.track.pitDriveHalfTicks;
+      car.pitLaneFrac = 0;
       car.pitEntryLapFloor = Math.floor(car.progress);
-      car.tireWear = 0;
       car.pitStops += 1;
-      logEvent(`🔧 ${car.name} (${car.team}) заезжает в боксы на пит-стоп #${car.pitStops}.`, "pit");
+      const isSlow = Math.random() < SLOW_PIT_STOP_CHANCE;
+      car.pitStopTicks = Math.round(rand(PIT_STOP_MIN_TICKS, PIT_STOP_MAX_TICKS) * (isSlow ? rand(1.6, 2.2) : 1));
+      logEvent(
+        `🔧 ${car.name} (${car.team}) заезжает в пит-лейн (пит-стоп #${car.pitStops}).${isSlow ? " ⚠️ Проблема на пит-стопе!" : ""}`,
+        "pit"
+      );
     }
     car.prevFrac = frac;
 
@@ -553,7 +629,7 @@ function updateCarPosition(car, laneIndex) {
   let t;
   let lane;
   if (car.pitting) {
-    t = openPathTangent(svgEls.pitPath, svgEls.pitTotalLength, car.pitProgress);
+    t = openPathTangent(svgEls.pitPath, svgEls.pitTotalLength, car.pitLaneFrac);
     lane = ((laneIndex % 3) - 1) * 4;
   } else {
     t = loopTangentNormal(car.progress);
@@ -586,18 +662,24 @@ function render() {
     let status;
     if (car.finished) status = car.finishPos === 1 ? "Победитель" : `Финиш P${car.finishPos}`;
     else if (car.dnf) status = "Сход";
-    else if (car.pitting) status = `Бокс (${Math.ceil(car.pitTicksLeft / 10)}с)`;
-    else status = `Круг ${Math.min(car.lap + 1, state.totalLaps)}/${state.totalLaps}`;
+    else if (car.pitting) {
+      const phaseLabel = car.pitPhase === "in" ? "Въезд в пит-лейн" : car.pitPhase === "stopped" ? "Смена шин" : "Выезд из пит-лейн";
+      status = `${phaseLabel} (${Math.ceil(car.pitPhaseTicksLeft / 10)}с)`;
+    } else status = `Круг ${Math.min(car.lap + 1, state.totalLaps)}/${state.totalLaps}`;
 
     const wearPct = Math.round(car.tireWear * 100);
     const wearColor = wearPct > 75 ? "var(--bad)" : wearPct > 45 ? "var(--warn)" : "var(--good)";
+    const compound = TIRE_COMPOUNDS[car.compound];
 
     tr.innerHTML = `
       <td>${idx + 1}</td>
       <td><span class="team-dot" style="background:${car.color}"></span>${car.name}</td>
       <td>${car.team}</td>
       <td>${status}</td>
-      <td><span class="tire-bar"><span class="tire-bar-fill" style="width:${wearPct}%;background:${wearColor}"></span></span></td>
+      <td>
+        <span class="tire-compound" style="background:${compound.color};color:${compound.text}" title="${compound.name}">${compound.code}</span>
+        <span class="tire-bar"><span class="tire-bar-fill" style="width:${wearPct}%;background:${wearColor}"></span></span>
+      </td>
     `;
     leaderboardBody.appendChild(tr);
   });
