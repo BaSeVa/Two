@@ -1,5 +1,8 @@
 "use strict";
 
+const SVGNS = "http://www.w3.org/2000/svg";
+const TRACK_CENTER = { x: 450, y: 225 };
+
 const TEAMS = [
   { name: "Titan Racing", color: "#e10600", drivers: ["M. Rossato", "K. Lindqvist"] },
   { name: "Meridian GP", color: "#1e6fe0", drivers: ["A. Dubois", "R. Alvarez"] },
@@ -13,31 +16,59 @@ const TEAMS = [
   { name: "Zenith Racing", color: "#8c2de0", drivers: ["I. Kowalski", "V. Santos"] },
 ];
 
-const TRACK_PATH_D =
-  "M270,90 L630,90 A135,135 0 0 1 630,360 L270,360 A135,135 0 0 1 270,90 Z";
+const TRACK_NAMES = [
+  "Автодром Аврора",
+  "Кольцо Норд-Бэй",
+  "Трасса Сан-Ремо",
+  "Автодром Кастелло",
+  "Кольцо Вермилион",
+  "Трасса Дюн-Гарден",
+  "Автодром Сильвер-Крик",
+  "Кольцо Обсидиан",
+  "Трасса Монте-Верде",
+  "Автодром Лазурный Берег",
+  "Кольцо Пантеон",
+  "Трасса Ред-Дюн",
+];
 
 const TICKS_PER_LAP = 220;
 const PIT_DURATION_TICKS = 55;
 const MAX_TICKS_SAFETY = 200000;
+const POINTS_TABLE = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1];
 
+let config = null;
+let roster = null;
+let season = null;
 let state = null;
-let svgEls = { path: null, carGroup: null };
+let svgEls = {};
 let running = false;
 let raf = null;
+let lastTrackName = null;
 
 const el = (id) => document.getElementById(id);
+const teamsInput = el("teams-input");
 const lapsInput = el("laps-input");
+const modeSelect = el("mode-select");
+const racesInput = el("races-input");
+const racesGroup = el("races-group");
 const speedSelect = el("speed-select");
 const startBtn = el("start-btn");
 const pauseBtn = el("pause-btn");
 const resetBtn = el("reset-btn");
 const weatherIndicator = el("weather-indicator");
+const raceIndicatorEl = el("race-indicator");
+const trackNameEl = el("track-name");
 const lapCounterEl = el("lap-counter");
 const leaderboardBody = el("leaderboard-body");
 const raceLogEl = el("race-log");
+const championshipPanel = el("championship-panel");
+const driversStandingsBody = el("drivers-standings-body");
+const constructorsStandingsBody = el("constructors-standings-body");
 const resultsModal = el("results-modal");
+const resultsTitleEl = el("results-title");
 const podiumEl = el("podium");
 const resultsBody = el("results-body");
+const nextRaceBtn = el("next-race-btn");
 const closeModalBtn = el("close-modal-btn");
 
 function rand(min, max) {
@@ -48,10 +79,249 @@ function gaussian() {
   return (Math.random() + Math.random() + Math.random() - 1.5) / 1.5;
 }
 
-function makeCars() {
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function normalize(v) {
+  const len = Math.hypot(v.x, v.y) || 1;
+  return { x: v.x / len, y: v.y / len };
+}
+
+function clampLaps(v) {
+  return Math.min(70, Math.max(3, v));
+}
+
+/* ---------- Track generation ---------- */
+
+function generateTrackPoints() {
+  const baseRx = rand(230, 300);
+  const baseRy = rand(120, 170);
+  const n = Math.floor(rand(9, 14));
+  const pts = [];
+  for (let i = 0; i < n; i++) {
+    const angle = (i / n) * Math.PI * 2;
+    pts.push({
+      x: TRACK_CENTER.x + Math.cos(angle) * baseRx * rand(0.72, 1.18),
+      y: TRACK_CENTER.y + Math.sin(angle) * baseRy * rand(0.72, 1.18),
+    });
+  }
+  return pts;
+}
+
+function catmullRomClosedPath(pts) {
+  const n = pts.length;
+  let d = `M${pts[0].x.toFixed(1)},${pts[0].y.toFixed(1)}`;
+  for (let i = 0; i < n; i++) {
+    const p0 = pts[(i - 1 + n) % n];
+    const p1 = pts[i];
+    const p2 = pts[(i + 1) % n];
+    const p3 = pts[(i + 2) % n];
+    const c1x = p1.x + (p2.x - p0.x) / 6;
+    const c1y = p1.y + (p2.y - p0.y) / 6;
+    const c2x = p2.x - (p3.x - p1.x) / 6;
+    const c2y = p2.y - (p3.y - p1.y) / 6;
+    d += ` C${c1x.toFixed(1)},${c1y.toFixed(1)} ${c2x.toFixed(1)},${c2y.toFixed(1)} ${p2.x.toFixed(1)},${p2.y.toFixed(1)}`;
+  }
+  return d + " Z";
+}
+
+function pickTrackName() {
+  let name = TRACK_NAMES[Math.floor(Math.random() * TRACK_NAMES.length)];
+  if (TRACK_NAMES.length > 1) {
+    while (name === lastTrackName) {
+      name = TRACK_NAMES[Math.floor(Math.random() * TRACK_NAMES.length)];
+    }
+  }
+  lastTrackName = name;
+  return name;
+}
+
+function createSvgEl(tag, attrs) {
+  const node = document.createElementNS(SVGNS, tag);
+  Object.entries(attrs).forEach(([k, v]) => node.setAttribute(k, v));
+  return node;
+}
+
+function createSvgPath(d, attrs) {
+  return createSvgEl("path", { d, fill: "none", ...attrs });
+}
+
+function pointAt(fraction) {
+  const len = (((fraction % 1) + 1) % 1) * svgEls.totalLength;
+  return svgEls.path.getPointAtLength(len);
+}
+
+function loopTangentNormal(fraction) {
+  const p1 = pointAt(fraction);
+  const p2 = pointAt(fraction + 0.004);
+  const dx = p2.x - p1.x;
+  const dy = p2.y - p1.y;
+  const len = Math.hypot(dx, dy) || 1;
+  return { x: p1.x, y: p1.y, nx: -dy / len, ny: dx / len };
+}
+
+function openPathPoint(pathEl, totalLength, fraction) {
+  const clamped = Math.max(0, Math.min(1, fraction));
+  return pathEl.getPointAtLength(clamped * totalLength);
+}
+
+function openPathTangent(pathEl, totalLength, fraction) {
+  const p1 = openPathPoint(pathEl, totalLength, fraction);
+  const pA = openPathPoint(pathEl, totalLength, Math.max(fraction - 0.01, 0));
+  const pB = openPathPoint(pathEl, totalLength, Math.min(fraction + 0.01, 1));
+  const dx = pB.x - pA.x;
+  const dy = pB.y - pA.y;
+  const len = Math.hypot(dx, dy) || 1;
+  return { x: p1.x, y: p1.y, nx: -dy / len, ny: dx / len };
+}
+
+function computePitLane(entryFrac, exitFrac) {
+  const pEntry = pointAt(entryFrac);
+  const pExit = pointAt(exitFrac);
+  const mid = { x: (pEntry.x + pExit.x) / 2, y: (pEntry.y + pExit.y) / 2 };
+  const inward = normalize({ x: TRACK_CENTER.x - mid.x, y: TRACK_CENTER.y - mid.y });
+  const offset = 50;
+  const q1 = {
+    x: pEntry.x * 0.65 + pExit.x * 0.35 + inward.x * offset,
+    y: pEntry.y * 0.65 + pExit.y * 0.35 + inward.y * offset,
+  };
+  const q2 = {
+    x: pEntry.x * 0.35 + pExit.x * 0.65 + inward.x * offset,
+    y: pEntry.y * 0.35 + pExit.y * 0.65 + inward.y * offset,
+  };
+  const d = `M${pEntry.x.toFixed(1)},${pEntry.y.toFixed(1)} C${q1.x.toFixed(1)},${q1.y.toFixed(1)} ${q2.x.toFixed(1)},${q2.y.toFixed(1)} ${pExit.x.toFixed(1)},${pExit.y.toFixed(1)}`;
+  return { d, entryPoint: pEntry, exitPoint: pExit };
+}
+
+function buildTrack() {
+  const svg = el("track-svg");
+  svg.innerHTML = "";
+  svgEls = {};
+
+  const defs = createSvgEl("defs", {});
+  defs.innerHTML = `
+    <pattern id="checker" width="7" height="7" patternUnits="userSpaceOnUse">
+      <rect width="7" height="7" fill="#fff"/>
+      <rect width="3.5" height="3.5" fill="#111"/>
+      <rect x="3.5" y="3.5" width="3.5" height="3.5" fill="#111"/>
+    </pattern>`;
+  svg.appendChild(defs);
+
+  const points = generateTrackPoints();
+  const mainD = catmullRomClosedPath(points);
+
+  const asphalt = createSvgPath(mainD, { stroke: "#33363f", "stroke-width": 34, "stroke-linejoin": "round" });
+  svg.appendChild(asphalt);
+  svgEls.path = asphalt;
+  svgEls.totalLength = asphalt.getTotalLength();
+
+  const kerb = createSvgPath(mainD, { stroke: "#4a4e5a", "stroke-width": 34, "stroke-dasharray": "2 22", opacity: "0.5" });
+  svg.appendChild(kerb);
+
+  const centerline = createSvgPath(mainD, { stroke: "#ffffff", "stroke-width": 2, "stroke-dasharray": "8 10", opacity: "0.35" });
+  svg.appendChild(centerline);
+
+  const entryFrac = rand(0.78, 0.92);
+  const exitFrac = rand(0.04, 0.14);
+  const pit = computePitLane(entryFrac, exitFrac);
+
+  const pitAsphalt = createSvgPath(pit.d, { stroke: "#2c2510", "stroke-width": 16, "stroke-linecap": "round" });
+  svg.appendChild(pitAsphalt);
+  svgEls.pitPath = pitAsphalt;
+  svgEls.pitTotalLength = pitAsphalt.getTotalLength();
+
+  const pitLine = createSvgPath(pit.d, { stroke: "#f5c518", "stroke-width": 1.5, "stroke-dasharray": "5 6", opacity: "0.85" });
+  svg.appendChild(pitLine);
+
+  for (let i = 1; i <= 3; i++) {
+    const p = openPathPoint(svgEls.pitPath, svgEls.pitTotalLength, i / 4);
+    svg.appendChild(
+      createSvgEl("rect", {
+        x: p.x - 9,
+        y: p.y - 5,
+        width: 18,
+        height: 10,
+        rx: 2,
+        fill: "#20242e",
+        stroke: "#3a3f4c",
+      })
+    );
+  }
+
+  svg.appendChild(createSvgEl("circle", { cx: pit.entryPoint.x, cy: pit.entryPoint.y, r: 4, fill: "#f5c518", stroke: "#0c0e14", "stroke-width": 1 }));
+  svg.appendChild(createSvgEl("circle", { cx: pit.exitPoint.x, cy: pit.exitPoint.y, r: 4, fill: "#3ddc6f", stroke: "#0c0e14", "stroke-width": 1 }));
+
+  const startPoint = pointAt(0);
+  const startTangent = loopTangentNormal(0);
+  const angleDeg = (Math.atan2(startTangent.ny, startTangent.nx) * 180) / Math.PI;
+  svg.appendChild(
+    createSvgEl("rect", {
+      x: -7,
+      y: -17,
+      width: 14,
+      height: 34,
+      fill: "url(#checker)",
+      transform: `translate(${startPoint.x},${startPoint.y}) rotate(${angleDeg})`,
+    })
+  );
+
+  const carGroup = createSvgEl("g", {});
+  svg.appendChild(carGroup);
+  svgEls.carGroup = carGroup;
+
+  state.track = {
+    name: pickTrackName(),
+    pitEntryFrac: entryFrac,
+    pitExitFrac: exitFrac,
+  };
+  trackNameEl.textContent = state.track.name;
+
+  state.cars.forEach((car) => {
+    const g = createSvgEl("g", { id: car.id });
+    g.style.opacity = "1";
+    const circle = createSvgEl("circle", { r: 7, fill: car.color, stroke: "#0c0e14", "stroke-width": 1.5 });
+    g.appendChild(circle);
+    const label = createSvgEl("text", { "text-anchor": "middle", dy: -10, "font-size": 8, fill: "#e8eaf0" });
+    label.textContent = car.number;
+    g.appendChild(label);
+    carGroup.appendChild(g);
+    car.svgGroup = g;
+    updateCarPosition(car, 0);
+  });
+}
+
+/* ---------- Cars / roster ---------- */
+
+function raceFieldDefaults() {
+  return {
+    progress: 0,
+    lap: 0,
+    tireWear: 0,
+    pitStops: 0,
+    pitTicksLeft: 0,
+    pitting: false,
+    wantsPit: false,
+    pitProgress: 0,
+    pitEntryLapFloor: 0,
+    prevFrac: 0,
+    finished: false,
+    dnf: false,
+    finishTick: null,
+    finishPos: null,
+    svgGroup: null,
+  };
+}
+
+function makeCars(teamsCount) {
+  const chosenTeams = shuffle([...TEAMS]).slice(0, teamsCount);
   const cars = [];
   let number = 1;
-  TEAMS.forEach((team) => {
+  chosenTeams.forEach((team) => {
     team.drivers.forEach((driverName) => {
       cars.push({
         id: `car-${number}`,
@@ -64,17 +334,11 @@ function makeCars() {
         wetSkill: rand(0.75, 1.15),
         reliability: 1 - rand(0.000002, 0.000006),
         stintLaps: rand(6, 13),
-        progress: 0,
-        lap: 0,
-        tireWear: 0,
-        pitStops: 0,
-        pitTicksLeft: 0,
         pitThreshold: rand(0.62, 0.9),
-        finished: false,
-        dnf: false,
-        finishTick: null,
-        finishPos: null,
-        gridPos: null,
+        seasonPoints: 0,
+        wins: 0,
+        podiums: 0,
+        ...raceFieldDefaults(),
       });
       number += 1;
     });
@@ -84,120 +348,72 @@ function makeCars() {
   return cars;
 }
 
-function createState() {
+function resetCarForRace(car) {
+  Object.assign(car, raceFieldDefaults());
+  car.stintLaps = rand(6, 13);
+  car.pitThreshold = rand(0.62, 0.9);
+}
+
+/* ---------- Config / season lifecycle ---------- */
+
+function readConfig() {
   return {
-    cars: makeCars(),
-    totalLaps: clampLaps(parseInt(lapsInput.value, 10) || 20),
+    teamsCount: Math.min(10, Math.max(2, parseInt(teamsInput.value, 10) || 10)),
+    lapsPerRace: clampLaps(parseInt(lapsInput.value, 10) || 20),
+    seasonMode: modeSelect.value === "season",
+    totalRaces: Math.min(16, Math.max(2, parseInt(racesInput.value, 10) || 5)),
+  };
+}
+
+function setControlsDisabled(disabled) {
+  [teamsInput, lapsInput, modeSelect, racesInput].forEach((elm) => (elm.disabled = disabled));
+}
+
+function initSeason() {
+  config = readConfig();
+  roster = makeCars(config.teamsCount);
+  season = {
+    active: config.seasonMode,
+    raceIndex: 1,
+    totalRaces: config.seasonMode ? config.totalRaces : 1,
+  };
+  startNewRace();
+  updateRaceIndicator();
+}
+
+function startNewRace() {
+  roster.forEach(resetCarForRace);
+  state = {
+    cars: roster,
+    totalLaps: config.lapsPerRace,
     tick: 0,
     weather: "dry",
     weatherTicksLeft: Math.floor(rand(400, 900)),
     finishedCount: 0,
     raceOver: false,
     lastOrder: [],
+    track: null,
   };
+  buildTrack();
+  render();
 }
 
-function clampLaps(v) {
-  return Math.min(70, Math.max(3, v));
+function updateRaceIndicator() {
+  if (season.active) {
+    raceIndicatorEl.textContent = `Гонка ${season.raceIndex} / ${season.totalRaces}`;
+    raceIndicatorEl.classList.remove("hidden");
+    championshipPanel.classList.remove("hidden");
+  } else {
+    raceIndicatorEl.classList.add("hidden");
+    championshipPanel.classList.add("hidden");
+  }
 }
 
-function buildTrack() {
-  const svg = el("track-svg");
-  svg.innerHTML = "";
+/* ---------- Simulation ---------- */
 
-  const asphalt = document.createElementNS("http://www.w3.org/2000/svg", "path");
-  asphalt.setAttribute("d", TRACK_PATH_D);
-  asphalt.setAttribute("fill", "none");
-  asphalt.setAttribute("stroke", "#33363f");
-  asphalt.setAttribute("stroke-width", "34");
-  asphalt.setAttribute("stroke-linejoin", "round");
-  svg.appendChild(asphalt);
-
-  const kerb = document.createElementNS("http://www.w3.org/2000/svg", "path");
-  kerb.setAttribute("d", TRACK_PATH_D);
-  kerb.setAttribute("fill", "none");
-  kerb.setAttribute("stroke", "#4a4e5a");
-  kerb.setAttribute("stroke-width", "34");
-  kerb.setAttribute("stroke-dasharray", "2 22");
-  kerb.setAttribute("opacity", "0.5");
-  svg.appendChild(kerb);
-
-  const centerline = document.createElementNS("http://www.w3.org/2000/svg", "path");
-  centerline.setAttribute("d", TRACK_PATH_D);
-  centerline.setAttribute("fill", "none");
-  centerline.setAttribute("stroke", "#ffffff");
-  centerline.setAttribute("stroke-width", "2");
-  centerline.setAttribute("stroke-dasharray", "8 10");
-  centerline.setAttribute("opacity", "0.35");
-  svg.appendChild(centerline);
-
-  const startFlag = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-  startFlag.setAttribute("x", "263");
-  startFlag.setAttribute("y", "73");
-  startFlag.setAttribute("width", "14");
-  startFlag.setAttribute("height", "34");
-  startFlag.setAttribute("fill", "url(#checker)");
-  svg.appendChild(startFlag);
-
-  const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
-  defs.innerHTML = `
-    <pattern id="checker" width="7" height="7" patternUnits="userSpaceOnUse">
-      <rect width="7" height="7" fill="#fff"/>
-      <rect width="3.5" height="3.5" fill="#111"/>
-      <rect x="3.5" y="3.5" width="3.5" height="3.5" fill="#111"/>
-    </pattern>`;
-  svg.insertBefore(defs, svg.firstChild);
-
-  const carGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
-  svg.appendChild(carGroup);
-
-  svgEls.path = asphalt;
-  svgEls.carGroup = carGroup;
-  svgEls.totalLength = asphalt.getTotalLength();
-
-  state.cars.forEach((car) => {
-    const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
-    g.setAttribute("id", car.id);
-
-    const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-    circle.setAttribute("r", "7");
-    circle.setAttribute("fill", car.color);
-    circle.setAttribute("stroke", "#0c0e14");
-    circle.setAttribute("stroke-width", "1.5");
-    g.appendChild(circle);
-
-    const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
-    label.setAttribute("text-anchor", "middle");
-    label.setAttribute("dy", "-10");
-    label.setAttribute("font-size", "8");
-    label.setAttribute("fill", "#e8eaf0");
-    label.textContent = car.number;
-    g.appendChild(label);
-
-    carGroup.appendChild(g);
-    car.svgGroup = g;
-  });
-}
-
-function pointAt(fraction) {
-  const len = ((fraction % 1) + 1) % 1 * svgEls.totalLength;
-  return svgEls.path.getPointAtLength(len);
-}
-
-function updateCarPosition(car, laneOffsetIndex) {
-  if (!car.svgGroup) return;
-  const frac = car.progress;
-  const p1 = pointAt(frac);
-  const p2 = pointAt(frac + 0.004);
-  const dx = p2.x - p1.x;
-  const dy = p2.y - p1.y;
-  const len = Math.hypot(dx, dy) || 1;
-  const nx = -dy / len;
-  const ny = dx / len;
-  const lane = ((laneOffsetIndex % 5) - 2) * 5.5;
-  const x = p1.x + nx * lane;
-  const y = p1.y + ny * lane;
-  car.svgGroup.setAttribute("transform", `translate(${x},${y})`);
+function weatherSpeedFactor(car) {
+  if (state.weather === "dry") return 1;
+  return 0.8 * car.wetSkill;
 }
 
 function logEvent(message, type = "info") {
@@ -205,14 +421,10 @@ function logEvent(message, type = "info") {
   entry.className = `log-entry event-${type}`;
   entry.textContent = message;
   raceLogEl.appendChild(entry);
-  while (raceLogEl.children.length > 120) {
+  while (raceLogEl.children.length > 150) {
     raceLogEl.removeChild(raceLogEl.firstChild);
   }
-}
-
-function weatherSpeedFactor(car) {
-  if (state.weather === "dry") return 1;
-  return 0.8 * car.wetSkill;
+  raceLogEl.scrollTop = raceLogEl.scrollHeight;
 }
 
 function simulateTick() {
@@ -234,9 +446,15 @@ function simulateTick() {
   const activeCars = state.cars.filter((c) => !c.finished && !c.dnf);
 
   activeCars.forEach((car) => {
-    if (car.pitTicksLeft > 0) {
+    if (car.pitting) {
       car.pitTicksLeft -= 1;
-      if (car.pitTicksLeft === 0) {
+      car.pitProgress = 1 - Math.max(car.pitTicksLeft, 0) / PIT_DURATION_TICKS;
+      if (car.pitTicksLeft <= 0) {
+        car.pitting = false;
+        car.pitProgress = 0;
+        car.progress = car.pitEntryLapFloor + 1 + state.track.pitExitFrac;
+        car.lap = Math.floor(car.progress);
+        car.prevFrac = car.progress - car.lap;
         logEvent(`🔧 ${car.name} (${car.team}) выезжает из боксов на новых шинах.`, "pit");
       }
       return;
@@ -249,38 +467,42 @@ function simulateTick() {
     }
 
     const base = 1 / TICKS_PER_LAP;
-    const skillFactor = car.skill;
     const wearPenalty = 1 - car.tireWear * 0.35;
     const weatherFactor = weatherSpeedFactor(car);
     const noise = 1 + gaussian() * (0.12 * (1.15 - car.consistency));
-    const speed = base * skillFactor * wearPenalty * weatherFactor * Math.max(noise, 0.4);
+    const speed = base * car.skill * wearPenalty * weatherFactor * Math.max(noise, 0.4);
 
     car.progress += speed;
     const wearRate = (base / car.stintLaps) * (state.weather === "rain" ? 1.4 : 1);
     car.tireWear = Math.min(1, car.tireWear + wearRate);
 
     const newLap = Math.floor(car.progress);
-    if (newLap > car.lap) {
-      car.lap = newLap;
+    if (newLap > car.lap) car.lap = newLap;
+
+    if (car.tireWear >= car.pitThreshold && !car.wantsPit && car.lap < state.totalLaps - 1) {
+      car.wantsPit = true;
     }
 
-    if (
-      car.tireWear >= car.pitThreshold &&
-      car.lap < state.totalLaps - 1 &&
-      car.pitTicksLeft === 0
-    ) {
+    const frac = car.progress - Math.floor(car.progress);
+    if (car.wantsPit && car.prevFrac < state.track.pitEntryFrac && frac >= state.track.pitEntryFrac) {
+      car.pitting = true;
+      car.wantsPit = false;
       car.pitTicksLeft = PIT_DURATION_TICKS;
+      car.pitProgress = 0;
+      car.pitEntryLapFloor = Math.floor(car.progress);
       car.tireWear = 0;
       car.pitStops += 1;
       logEvent(`🔧 ${car.name} (${car.team}) заезжает в боксы на пит-стоп #${car.pitStops}.`, "pit");
     }
+    car.prevFrac = frac;
 
     if (car.lap >= state.totalLaps && !car.finished) {
       car.finished = true;
       car.finishTick = state.tick;
       state.finishedCount += 1;
       car.finishPos = state.finishedCount;
-      const posLabel = car.finishPos === 1 ? "🥇 Победа!" : car.finishPos === 2 ? "🥈" : car.finishPos === 3 ? "🥉" : `P${car.finishPos}`;
+      const posLabel =
+        car.finishPos === 1 ? "🥇 Победа!" : car.finishPos === 2 ? "🥈" : car.finishPos === 3 ? "🥉" : `P${car.finishPos}`;
       logEvent(`🏁 Финиш: ${car.name} (${car.team}) — ${posLabel}`, "finish");
     }
   });
@@ -324,13 +546,34 @@ function detectOvertakes() {
   state.lastOrder = order;
 }
 
+/* ---------- Rendering ---------- */
+
+function updateCarPosition(car, laneIndex) {
+  if (!car.svgGroup) return;
+  let t;
+  let lane;
+  if (car.pitting) {
+    t = openPathTangent(svgEls.pitPath, svgEls.pitTotalLength, car.pitProgress);
+    lane = ((laneIndex % 3) - 1) * 4;
+  } else {
+    t = loopTangentNormal(car.progress);
+    lane = ((laneIndex % 5) - 2) * 5.5;
+  }
+  const x = t.x + t.nx * lane;
+  const y = t.y + t.ny * lane;
+  car.svgGroup.setAttribute("transform", `translate(${x},${y})`);
+}
+
 function render() {
   const order = currentOrder();
 
   order.forEach((id, idx) => {
     const car = state.cars.find((c) => c.id === id);
-    if (!car.finished) updateCarPosition(car, idx);
-    else if (car.svgGroup) car.svgGroup.style.opacity = "0.35";
+    if (!car.finished) {
+      updateCarPosition(car, idx);
+    } else if (car.svgGroup) {
+      car.svgGroup.style.opacity = "0.35";
+    }
   });
 
   leaderboardBody.innerHTML = "";
@@ -343,7 +586,7 @@ function render() {
     let status;
     if (car.finished) status = car.finishPos === 1 ? "Победитель" : `Финиш P${car.finishPos}`;
     else if (car.dnf) status = "Сход";
-    else if (car.pitTicksLeft > 0) status = `Бокс (${Math.ceil(car.pitTicksLeft / 10)}с)`;
+    else if (car.pitting) status = `Бокс (${Math.ceil(car.pitTicksLeft / 10)}с)`;
     else status = `Круг ${Math.min(car.lap + 1, state.totalLaps)}/${state.totalLaps}`;
 
     const wearPct = Math.round(car.tireWear * 100);
@@ -364,6 +607,34 @@ function render() {
   weatherIndicator.textContent = state.weather === "rain" ? "🌧️ Дождь" : "☀️ Сухо";
 }
 
+function renderStandings() {
+  if (!season.active) return;
+
+  const sortedDrivers = [...state.cars].sort((a, b) => b.seasonPoints - a.seasonPoints);
+  driversStandingsBody.innerHTML = "";
+  sortedDrivers.forEach((car, idx) => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>${idx + 1}</td><td><span class="team-dot" style="background:${car.color}"></span>${car.name}</td><td>${car.team}</td><td>${car.seasonPoints}</td>`;
+    driversStandingsBody.appendChild(tr);
+  });
+
+  const constructorPoints = {};
+  const constructorColor = {};
+  state.cars.forEach((car) => {
+    constructorPoints[car.team] = (constructorPoints[car.team] || 0) + car.seasonPoints;
+    constructorColor[car.team] = car.color;
+  });
+  const sortedTeams = Object.entries(constructorPoints).sort((a, b) => b[1] - a[1]);
+  constructorsStandingsBody.innerHTML = "";
+  sortedTeams.forEach(([team, pts], idx) => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>${idx + 1}</td><td><span class="team-dot" style="background:${constructorColor[team]}"></span>${team}</td><td>${pts}</td>`;
+    constructorsStandingsBody.appendChild(tr);
+  });
+}
+
+/* ---------- Loop / lifecycle ---------- */
+
 function loop() {
   if (!running) return;
   const speed = parseInt(speedSelect.value, 10);
@@ -383,9 +654,20 @@ function finishRace() {
   running = false;
   startBtn.disabled = true;
   pauseBtn.disabled = true;
-  startBtn.textContent = "Старт";
 
   const finalOrder = currentOrder().map((id) => state.cars.find((c) => c.id === id));
+
+  if (season.active) {
+    finalOrder.forEach((car) => {
+      if (car.finished) {
+        const pts = POINTS_TABLE[car.finishPos - 1] || 0;
+        car.seasonPoints += pts;
+        if (car.finishPos === 1) car.wins += 1;
+        if (car.finishPos <= 3) car.podiums += 1;
+      }
+    });
+  }
+
   podiumEl.innerHTML = "";
   resultsBody.innerHTML = "";
 
@@ -398,13 +680,29 @@ function finishRace() {
 
   finalOrder.forEach((car, idx) => {
     const tr = document.createElement("tr");
-    const result = car.dnf ? "DNF" : car.finished ? `+${car.pitStops} пит-стопов` : "—";
-    tr.innerHTML = `<td>${car.dnf ? "DNF" : idx + 1}</td><td>${car.name}</td><td>${car.team}</td><td>${result}</td>`;
+    const result = car.dnf ? "DNF" : car.finished ? `${car.pitStops} пит-стопов` : "—";
+    const pts = season.active ? (car.finished ? POINTS_TABLE[car.finishPos - 1] || 0 : 0) : "—";
+    tr.innerHTML = `<td>${car.dnf ? "DNF" : idx + 1}</td><td>${car.name}</td><td>${car.team}</td><td>${result}</td><td>${pts}</td>`;
     resultsBody.appendChild(tr);
   });
 
+  const isFinalRace = season.active && season.raceIndex >= season.totalRaces;
+  resultsTitleEl.textContent = isFinalRace
+    ? "🏆 Финал сезона!"
+    : season.active
+    ? `🏁 Результаты гонки ${season.raceIndex}/${season.totalRaces}`
+    : "🏆 Результаты гонки";
+
+  nextRaceBtn.classList.toggle("hidden", !(season.active && !isFinalRace));
+
+  renderStandings();
   resultsModal.classList.remove("hidden");
-  logEvent("🏁 Гонка завершена!", "finish");
+
+  logEvent(`🏁 Гонка завершена!${season.active ? ` (${season.raceIndex}/${season.totalRaces})` : ""}`, "finish");
+  if (isFinalRace) {
+    const champion = [...state.cars].sort((a, b) => b.seasonPoints - a.seasonPoints)[0];
+    logEvent(`🏆 Чемпион сезона: ${champion.name} (${champion.team}) — ${champion.seasonPoints} очков!`, "finish");
+  }
 }
 
 function resetAll() {
@@ -412,23 +710,29 @@ function resetAll() {
   if (raf) cancelAnimationFrame(raf);
   raceLogEl.innerHTML = "";
   resultsModal.classList.add("hidden");
-  state = createState();
-  buildTrack();
-  render();
+  initSeason();
+  renderStandings();
   startBtn.disabled = false;
   startBtn.textContent = "Старт";
   pauseBtn.disabled = true;
   pauseBtn.textContent = "Пауза";
-  lapsInput.disabled = false;
-  logEvent(`🏎️ Стартовая решётка готова. ${state.totalLaps} кругов, 20 пилотов.`, "info");
+  setControlsDisabled(false);
+  logEvent(
+    `🏎️ ${state.track.name}: стартовая решётка готова. ${state.totalLaps} кругов, ${state.cars.length} пилотов.${
+      season.active ? ` Сезон: ${season.totalRaces} гонок.` : ""
+    }`,
+    "info"
+  );
 }
+
+/* ---------- Event wiring ---------- */
 
 startBtn.addEventListener("click", () => {
   if (state.raceOver) return;
   running = true;
   startBtn.disabled = true;
   pauseBtn.disabled = false;
-  lapsInput.disabled = true;
+  setControlsDisabled(true);
   if (state.tick === 0) logEvent("🚦 Гонка началась!", "info");
   raf = requestAnimationFrame(loop);
 });
@@ -442,8 +746,25 @@ pauseBtn.addEventListener("click", () => {
 resetBtn.addEventListener("click", resetAll);
 closeModalBtn.addEventListener("click", () => resultsModal.classList.add("hidden"));
 
+nextRaceBtn.addEventListener("click", () => {
+  resultsModal.classList.add("hidden");
+  season.raceIndex += 1;
+  startNewRace();
+  updateRaceIndicator();
+  startBtn.disabled = false;
+  pauseBtn.disabled = true;
+  startBtn.textContent = "Старт";
+  logEvent(`🏎️ ${state.track.name}: стартовая решётка готова для гонки ${season.raceIndex}/${season.totalRaces}.`, "info");
+});
+
 lapsInput.addEventListener("change", () => {
   lapsInput.value = clampLaps(parseInt(lapsInput.value, 10) || 20);
 });
+
+modeSelect.addEventListener("change", () => {
+  racesGroup.classList.toggle("hidden", modeSelect.value !== "season");
+});
+
+racesGroup.classList.toggle("hidden", modeSelect.value !== "season");
 
 resetAll();

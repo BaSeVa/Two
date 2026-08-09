@@ -15,8 +15,31 @@
 
   <section class="controls">
     <div class="control-group">
+      <label for="teams-input">Команды</label>
+      <select id="teams-input">
+        <option value="4">4</option>
+        <option value="5">5</option>
+        <option value="6">6</option>
+        <option value="7">7</option>
+        <option value="8">8</option>
+        <option value="9">9</option>
+        <option value="10" selected>10</option>
+      </select>
+    </div>
+    <div class="control-group">
       <label for="laps-input">Круги</label>
       <input id="laps-input" type="number" min="3" max="70" value="20">
+    </div>
+    <div class="control-group">
+      <label for="mode-select">Режим</label>
+      <select id="mode-select">
+        <option value="single" selected>Гран-при</option>
+        <option value="season">Сезон</option>
+      </select>
+    </div>
+    <div class="control-group" id="races-group">
+      <label for="races-input">Гонок в сезоне</label>
+      <input id="races-input" type="number" min="2" max="16" value="5">
     </div>
     <div class="control-group">
       <label for="speed-select">Скорость</label>
@@ -30,13 +53,19 @@
     <button id="start-btn" class="btn btn-primary">Старт</button>
     <button id="pause-btn" class="btn" disabled>Пауза</button>
     <button id="reset-btn" class="btn">Новая сетка</button>
+    <div class="race-indicator hidden" id="race-indicator">Гонка 1 / 1</div>
     <div class="weather-indicator" id="weather-indicator">☀️ Сухо</div>
   </section>
 
   <section class="main-grid">
     <div class="track-panel">
+      <div class="track-name" id="track-name">Трасса</div>
       <svg id="track-svg" viewBox="0 0 900 450" preserveAspectRatio="xMidYMid meet"></svg>
       <div class="lap-counter" id="lap-counter">Круг 0 / 0</div>
+      <div class="legend">
+        <span><i class="legend-dot pit-lane-dot"></i>Пит-лейн</span>
+        <span><i class="legend-dot track-dot"></i>Трасса</span>
+      </div>
     </div>
 
     <div class="leaderboard-panel">
@@ -58,6 +87,30 @@
     </div>
   </section>
 
+  <section class="championship-panel hidden" id="championship-panel">
+    <h2>Чемпионат</h2>
+    <div class="championship-grid">
+      <div>
+        <h3>Пилоты</h3>
+        <div class="table-wrap">
+          <table id="drivers-standings">
+            <thead><tr><th>#</th><th>Пилот</th><th>Команда</th><th>Очки</th></tr></thead>
+            <tbody id="drivers-standings-body"></tbody>
+          </table>
+        </div>
+      </div>
+      <div>
+        <h3>Конструкторы</h3>
+        <div class="table-wrap">
+          <table id="constructors-standings">
+            <thead><tr><th>#</th><th>Команда</th><th>Очки</th></tr></thead>
+            <tbody id="constructors-standings-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <section class="log-panel">
     <h2>Трансляция</h2>
     <div id="race-log" class="race-log"></div>
@@ -65,17 +118,20 @@
 
   <div id="results-modal" class="modal hidden">
     <div class="modal-content">
-      <h2>🏆 Результаты гонки</h2>
+      <h2 id="results-title">🏆 Результаты гонки</h2>
       <div id="podium" class="podium"></div>
       <div class="table-wrap">
         <table id="results-table">
           <thead>
-            <tr><th>Место</th><th>Пилот</th><th>Команда</th><th>Результат</th></tr>
+            <tr><th>Место</th><th>Пилот</th><th>Команда</th><th>Результат</th><th>Очки</th></tr>
           </thead>
           <tbody id="results-body"></tbody>
         </table>
       </div>
-      <button id="close-modal-btn" class="btn btn-primary">Закрыть</button>
+      <div class="modal-actions">
+        <button id="next-race-btn" class="btn btn-primary hidden">Следующая гонка</button>
+        <button id="close-modal-btn" class="btn">Закрыть</button>
+      </div>
     </div>
   </div>
 </div>
