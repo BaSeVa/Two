@@ -45,14 +45,11 @@ def ask_settings():
     return target_rgb, alpha
 
 
-def draw_random_walk(steps=STEPS, length=LINE_LENGTH):
-    target_rgb, alpha = ask_settings()
-
-    screen = turtle.Screen()
-    screen.title("Случайное рисование")
-    pen = turtle.Turtle()
-    pen.speed(0)
-
+def run_once(pen, steps, length, target_rgb, alpha):
+    pen.penup()
+    pen.goto(0, 0)
+    pen.setheading(0)
+    pen.pendown()
     pen.pencolor(*color_for_line(target_rgb, alpha))
 
     current_length = length
@@ -65,6 +62,24 @@ def draw_random_walk(steps=STEPS, length=LINE_LENGTH):
         pen.setheading(DIRECTIONS[number])
         pen.forward(current_length)
         previous_number = number
+
+
+def draw_random_walk(steps=STEPS, length=LINE_LENGTH):
+    screen = turtle.Screen()
+    screen.title("Случайное рисование")
+    pen = turtle.Turtle()
+    pen.speed(0)
+    pen.hideturtle()
+
+    run_once(pen, steps, length, *ask_settings())
+
+    while True:
+        again = input(
+            "Запустить ещё раз поверх текущего рисунка, начиная из начальной точки? (y/N): "
+        ).strip().lower()
+        if again != "y":
+            break
+        run_once(pen, steps, length, *ask_settings())
 
     screen.exitonclick()
 
