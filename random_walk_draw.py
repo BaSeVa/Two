@@ -2,7 +2,7 @@ import random
 import turtle
 
 STEPS = 100
-LINE_LENGTH = 20
+LINE_LENGTH = 1
 BACKGROUND = (1.0, 1.0, 1.0)  # фон холста turtle, для имитации прозрачности
 
 DEFAULT_COLOR_HEX = "#3454d1"
