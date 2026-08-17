@@ -3,7 +3,6 @@ import turtle
 
 STEPS = 100
 LINE_LENGTH = 20
-RAMP_STEPS = 50  # за столько линий градиент доходит от чёрного до выбранного цвета
 BACKGROUND = (1.0, 1.0, 1.0)  # фон холста turtle, для имитации прозрачности
 
 DEFAULT_COLOR_HEX = "#3454d1"
@@ -27,10 +26,8 @@ def blend_with_background(color, alpha, background=BACKGROUND):
     return tuple(alpha * c + (1 - alpha) * bg for c, bg in zip(color, background))
 
 
-def color_for_line(index, target_rgb, alpha):
-    t = min(index / RAMP_STEPS, 1.0)
-    color = tuple(t * c for c in target_rgb)
-    return blend_with_background(color, alpha)
+def color_for_line(target_rgb, alpha):
+    return blend_with_background(target_rgb, alpha)
 
 
 def ask_settings():
@@ -56,14 +53,15 @@ def draw_random_walk(steps=STEPS, length=LINE_LENGTH):
     pen = turtle.Turtle()
     pen.speed(0)
 
+    pen.pencolor(*color_for_line(target_rgb, alpha))
+
     current_length = length
     previous_number = None
 
-    for index in range(steps):
+    for _ in range(steps):
         number = random.randint(0, 3)
         if number == previous_number:
             current_length += 0.01
-        pen.pencolor(*color_for_line(index, target_rgb, alpha))
         pen.setheading(DIRECTIONS[number])
         pen.forward(current_length)
         previous_number = number
