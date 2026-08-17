@@ -25,7 +25,7 @@ def draw_random_walk(steps=STEPS, length=LINE_LENGTH):
     for _ in range(steps):
         number = random.randint(0, 3)
         if number == previous_number:
-            current_length += 0.1
+            current_length += 0.01
         pen.setheading(DIRECTIONS[number])
         pen.forward(current_length)
         previous_number = number
