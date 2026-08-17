@@ -19,10 +19,16 @@ def draw_random_walk(steps=STEPS, length=LINE_LENGTH):
     pen = turtle.Turtle()
     pen.speed(0)
 
+    current_length = length
+    previous_number = None
+
     for _ in range(steps):
         number = random.randint(0, 3)
+        if number == previous_number:
+            current_length += length * 0.05
         pen.setheading(DIRECTIONS[number])
-        pen.forward(length)
+        pen.forward(current_length)
+        previous_number = number
 
     screen.exitonclick()
 
