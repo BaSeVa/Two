@@ -17,6 +17,9 @@ DIRECTIONS = {
     3: 0,
 }
 
+# порядок направлений по часовой стрелке для режима "спираль": вправо, вниз, влево, вверх
+SPIRAL_ORDER = [3, 0, 2, 1]
+
 
 def hex_to_rgb01(hex_color):
     hex_color = hex_color.strip().lstrip("#")
@@ -48,10 +51,15 @@ def ask_settings():
     ).strip()
     increment = float(increment_input) if increment_input else DEFAULT_INCREMENT
 
-    return target_rgb, alpha, increment
+    mode_input = input(
+        "Траектория: (о)бычная случайная или (с)пираль (Enter — обычная): "
+    ).strip().lower()
+    mode = "spiral" if mode_input.startswith("с") or mode_input.startswith("s") else "random"
+
+    return target_rgb, alpha, increment, mode
 
 
-def run_once(pen, steps, length, target_rgb, alpha, increment):
+def run_once(pen, steps, length, target_rgb, alpha, increment, mode):
     pen.penup()
     pen.goto(0, 0)
     pen.setheading(0)
@@ -61,13 +69,30 @@ def run_once(pen, steps, length, target_rgb, alpha, increment):
     current_length = length
     previous_number = None
 
+    spiral_dir_index = 0
+    spiral_side_len = 1
+    spiral_side_progress = 0
+    spiral_sides_at_len = 0
+
     for _ in range(steps):
         number = random.randint(0, 3)
+        direction = SPIRAL_ORDER[spiral_dir_index] if mode == "spiral" else number
+
         if number == previous_number:
             current_length += increment
-        pen.setheading(DIRECTIONS[number])
+        pen.setheading(DIRECTIONS[direction])
         pen.forward(current_length)
         previous_number = number
+
+        if mode == "spiral":
+            spiral_side_progress += 1
+            if spiral_side_progress >= spiral_side_len:
+                spiral_side_progress = 0
+                spiral_dir_index = (spiral_dir_index + 1) % 4
+                spiral_sides_at_len += 1
+                if spiral_sides_at_len >= 2:
+                    spiral_sides_at_len = 0
+                    spiral_side_len += 1
 
 
 def draw_random_walk(steps=STEPS, length=LINE_LENGTH):
