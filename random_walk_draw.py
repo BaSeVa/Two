@@ -6,7 +6,7 @@ LINE_LENGTH = 1
 BACKGROUND = (1.0, 1.0, 1.0)  # фон холста turtle, для имитации прозрачности
 
 DEFAULT_ALPHA_PERCENT = 100.0
-DEFAULT_INCREMENT = 0.001
+DEFAULT_INCREMENT = 0.0001
 
 # 0 -> вниз, 1 -> вверх, 2 -> влево, 3 -> вправо
 DIRECTIONS = {
@@ -58,7 +58,7 @@ def ask_settings():
     alpha = max(0.0, min(100.0, alpha_percent)) / 100
 
     increment_input = input(
-        f"Прирост длины при повторе числа, px, шаг 0.001 (Enter — {DEFAULT_INCREMENT:.3f}): "
+        f"Прирост длины при повторе числа, px, шаг 0.0001 (Enter — {DEFAULT_INCREMENT:.4f}): "
     ).strip()
     increment = float(increment_input) if increment_input else DEFAULT_INCREMENT
 
