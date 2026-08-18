@@ -31,6 +31,21 @@ DEFAULT_COLOR_HEX_BY_DIGIT = {
 }
 
 
+def save_image(pen, filename):
+    if not filename.lower().endswith(".eps"):
+        filename += ".eps"
+    pen.getscreen().getcanvas().postscript(file=filename, colormode="color")
+
+    try:
+        from PIL import Image
+
+        png_filename = filename[:-4] + ".png"
+        Image.open(filename).save(png_filename)
+        return png_filename
+    except Exception:
+        return filename
+
+
 def hex_to_rgb01(hex_color):
     hex_color = hex_color.strip().lstrip("#")
     return tuple(int(hex_color[i:i + 2], 16) / 255 for i in (0, 2, 4))
@@ -100,6 +115,13 @@ def draw_random_walk(steps=STEPS, length=LINE_LENGTH):
         if again != "y":
             break
         run_once(pen, steps, length, *ask_settings())
+
+    filename = input(
+        "Сохранить картинку в файл? Введите имя файла (Enter — пропустить): "
+    ).strip()
+    if filename:
+        saved_as = save_image(pen, filename)
+        print(f"Картинка сохранена: {saved_as}")
 
     screen.exitonclick()
 
