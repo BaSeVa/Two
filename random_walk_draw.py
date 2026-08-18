@@ -1,4 +1,5 @@
 import random
+import time
 import turtle
 
 STEPS = 100
@@ -80,9 +81,25 @@ def ask_settings():
     return colors_by_digit, alpha, increment
 
 
-def run_once(pen, steps, length, colors_by_digit, alpha, increment, background_rgb):
+def wait_for_start_click(screen):
+    coords = {}
+
+    def handle_click(x, y):
+        coords["x"] = x
+        coords["y"] = y
+
+    screen.onclick(handle_click)
+    root = screen.getcanvas().winfo_toplevel()
+    while "x" not in coords:
+        root.update()
+        time.sleep(0.02)
+    screen.onclick(None)
+    return coords["x"], coords["y"]
+
+
+def run_once(pen, steps, length, colors_by_digit, alpha, increment, background_rgb, start_x, start_y):
     pen.penup()
-    pen.goto(0, 0)
+    pen.goto(start_x, start_y)
     pen.setheading(0)
     pen.pendown()
 
@@ -112,15 +129,18 @@ def draw_random_walk(steps=STEPS, length=LINE_LENGTH):
     pen.speed(0)
     pen.hideturtle()
 
-    run_once(pen, steps, length, *ask_settings(), background_rgb)
+    print("Кликните по холсту, чтобы задать точку начала...")
+    start_x, start_y = wait_for_start_click(screen)
+
+    run_once(pen, steps, length, *ask_settings(), background_rgb, start_x, start_y)
 
     while True:
         again = input(
-            "Запустить ещё раз поверх текущего рисунка, начиная из начальной точки? (y/N): "
+            "Запустить ещё раз поверх текущего рисунка, начиная из той же точки? (y/N): "
         ).strip().lower()
         if again != "y":
             break
-        run_once(pen, steps, length, *ask_settings(), background_rgb)
+        run_once(pen, steps, length, *ask_settings(), background_rgb, start_x, start_y)
 
     filename = input(
         "Сохранить картинку в файл? Введите имя файла (Enter — пропустить): "
