@@ -32,10 +32,10 @@ DEFAULT_COLOR_HEX_BY_DIGIT = {
 }
 
 
-def save_image(pen, filename):
+def save_image(screen, filename):
     if not filename.lower().endswith(".eps"):
         filename += ".eps"
-    pen.getscreen().getcanvas().postscript(file=filename, colormode="color")
+    screen.getcanvas().postscript(file=filename, colormode="color")
 
     try:
         from PIL import Image
@@ -97,23 +97,31 @@ def wait_for_start_click(screen):
     return coords["x"], coords["y"]
 
 
-def run_once(pen, steps, length, colors_by_digit, alpha, increment, background_rgb, start_x, start_y):
-    pen.penup()
-    pen.goto(start_x, start_y)
-    pen.setheading(0)
-    pen.pendown()
+def make_walkers(start_points, length):
+    walkers = []
+    for start_x, start_y in start_points:
+        pen = turtle.Turtle()
+        pen.speed(0)
+        pen.hideturtle()
+        pen.penup()
+        pen.goto(start_x, start_y)
+        pen.setheading(0)
+        pen.pendown()
+        walkers.append({"pen": pen, "current_length": length, "previous_number": None})
+    return walkers
 
-    current_length = length
-    previous_number = None
 
+def run_walkers(walkers, steps, colors_by_digit, alpha, increment, background_rgb):
     for _ in range(steps):
-        number = random.randint(0, 3)
-        if number == previous_number:
-            current_length += increment
-        pen.pencolor(*color_for_digit(colors_by_digit[number], alpha, background_rgb))
-        pen.setheading(DIRECTIONS[number])
-        pen.forward(current_length)
-        previous_number = number
+        for state in walkers:
+            pen = state["pen"]
+            number = random.randint(0, 3)
+            if number == state["previous_number"]:
+                state["current_length"] += increment
+            pen.pencolor(*color_for_digit(colors_by_digit[number], alpha, background_rgb))
+            pen.setheading(DIRECTIONS[number])
+            pen.forward(state["current_length"])
+            state["previous_number"] = number
 
 
 def ask_start_point(screen):
@@ -137,6 +145,16 @@ def ask_start_point(screen):
     return wait_for_start_click(screen)
 
 
+def ask_start_points(screen):
+    points = [ask_start_point(screen)]
+    while True:
+        more = input("Добавить ещё одну точку начала? (y/N): ").strip().lower()
+        if more != "y":
+            break
+        points.append(ask_start_point(screen))
+    return points
+
+
 def draw_random_walk(steps=STEPS, length=LINE_LENGTH):
     screen = turtle.Screen()
     screen.title("Случайное рисование")
@@ -147,27 +165,25 @@ def draw_random_walk(steps=STEPS, length=LINE_LENGTH):
     screen.bgcolor(bg_hex)
     background_rgb = hex_to_rgb01(bg_hex)
 
-    pen = turtle.Turtle()
-    pen.speed(0)
-    pen.hideturtle()
+    start_points = ask_start_points(screen)
 
-    start_x, start_y = ask_start_point(screen)
-
-    run_once(pen, steps, length, *ask_settings(), background_rgb, start_x, start_y)
+    walkers = make_walkers(start_points, length)
+    run_walkers(walkers, steps, *ask_settings(), background_rgb)
 
     while True:
         again = input(
-            "Запустить ещё раз поверх текущего рисунка, начиная из той же точки? (y/N): "
+            "Запустить ещё раз поверх текущего рисунка, из тех же точек? (y/N): "
         ).strip().lower()
         if again != "y":
             break
-        run_once(pen, steps, length, *ask_settings(), background_rgb, start_x, start_y)
+        walkers = make_walkers(start_points, length)
+        run_walkers(walkers, steps, *ask_settings(), background_rgb)
 
     filename = input(
         "Сохранить картинку в файл? Введите имя файла (Enter — пропустить): "
     ).strip()
     if filename:
-        saved_as = save_image(pen, filename)
+        saved_as = save_image(screen, filename)
         print(f"Картинка сохранена: {saved_as}")
 
     screen.exitonclick()
