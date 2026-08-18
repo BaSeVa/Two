@@ -78,7 +78,12 @@ def ask_settings():
     ).strip()
     increment = float(increment_input) if increment_input else DEFAULT_INCREMENT
 
-    return colors_by_digit, alpha, increment
+    numbers_input = input(
+        "Цифры для точек: (о)дни и те же для всех или (р)азные у каждой (Enter — разные): "
+    ).strip().lower()
+    same_numbers = numbers_input.startswith("о")
+
+    return colors_by_digit, alpha, increment, same_numbers
 
 
 def wait_for_start_click(screen):
@@ -111,11 +116,12 @@ def make_walkers(start_points, length):
     return walkers
 
 
-def run_walkers(walkers, steps, colors_by_digit, alpha, increment, background_rgb):
+def run_walkers(walkers, steps, colors_by_digit, alpha, increment, same_numbers, background_rgb):
     for _ in range(steps):
+        shared_number = random.randint(0, 3)
         for state in walkers:
             pen = state["pen"]
-            number = random.randint(0, 3)
+            number = shared_number if same_numbers else random.randint(0, 3)
             if number == state["previous_number"]:
                 state["current_length"] += increment
             pen.pencolor(*color_for_digit(colors_by_digit[number], alpha, background_rgb))
