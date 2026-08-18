@@ -7,6 +7,7 @@ BACKGROUND = (1.0, 1.0, 1.0)  # фон холста turtle, для имитац�
 
 DEFAULT_COLOR_HEX = "#3454d1"
 DEFAULT_ALPHA_PERCENT = 100.0
+DEFAULT_INCREMENT = 0.01
 
 # 0 -> вниз, 1 -> вверх, 2 -> влево, 3 -> вправо
 DIRECTIONS = {
@@ -42,10 +43,15 @@ def ask_settings():
     alpha_percent = float(alpha_input) if alpha_input else DEFAULT_ALPHA_PERCENT
     alpha = max(0.0, min(100.0, alpha_percent)) / 100
 
-    return target_rgb, alpha
+    increment_input = input(
+        f"Прирост длины при повторе числа, px, шаг 0.01 (Enter — {DEFAULT_INCREMENT:.2f}): "
+    ).strip()
+    increment = float(increment_input) if increment_input else DEFAULT_INCREMENT
+
+    return target_rgb, alpha, increment
 
 
-def run_once(pen, steps, length, target_rgb, alpha):
+def run_once(pen, steps, length, target_rgb, alpha, increment):
     pen.penup()
     pen.goto(0, 0)
     pen.setheading(0)
@@ -58,7 +64,7 @@ def run_once(pen, steps, length, target_rgb, alpha):
     for _ in range(steps):
         number = random.randint(0, 3)
         if number == previous_number:
-            current_length += 0.01
+            current_length += increment
         pen.setheading(DIRECTIONS[number])
         pen.forward(current_length)
         previous_number = number
