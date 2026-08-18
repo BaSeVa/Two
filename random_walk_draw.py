@@ -116,9 +116,31 @@ def run_once(pen, steps, length, colors_by_digit, alpha, increment, background_r
         previous_number = number
 
 
+def ask_start_point(screen):
+    half = 300
+    margin = 20
+    presets = {
+        "1": ("середина", (0, 0)),
+        "2": ("левый верхний угол", (-half + margin, half - margin)),
+        "3": ("левый нижний угол", (-half + margin, -half + margin)),
+        "4": ("правый верхний угол", (half - margin, half - margin)),
+        "5": ("правый нижний угол", (half - margin, -half + margin)),
+    }
+    print("Точка начала:")
+    for key, (label, _) in presets.items():
+        print(f"  {key} — {label}")
+    print("  Enter — кликнуть по холсту")
+    choice = input("Выбор: ").strip()
+    if choice in presets:
+        return presets[choice][1]
+    print("Кликните по холсту, чтобы задать точку начала...")
+    return wait_for_start_click(screen)
+
+
 def draw_random_walk(steps=STEPS, length=LINE_LENGTH):
     screen = turtle.Screen()
     screen.title("Случайное рисование")
+    screen.setup(width=600, height=600)
 
     bg_hex_input = input(f"Цвет холста в HEX (Enter — {DEFAULT_CANVAS_COLOR_HEX}): ").strip()
     bg_hex = bg_hex_input if bg_hex_input else DEFAULT_CANVAS_COLOR_HEX
@@ -129,8 +151,7 @@ def draw_random_walk(steps=STEPS, length=LINE_LENGTH):
     pen.speed(0)
     pen.hideturtle()
 
-    print("Кликните по холсту, чтобы задать точку начала...")
-    start_x, start_y = wait_for_start_click(screen)
+    start_x, start_y = ask_start_point(screen)
 
     run_once(pen, steps, length, *ask_settings(), background_rgb, start_x, start_y)
 
