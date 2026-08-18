@@ -3,10 +3,10 @@ import turtle
 
 STEPS = 100
 LINE_LENGTH = 1
-BACKGROUND = (1.0, 1.0, 1.0)  # фон холста turtle, для имитации прозрачности
 
 DEFAULT_ALPHA_PERCENT = 100.0
 DEFAULT_INCREMENT = 0.0001
+DEFAULT_CANVAS_COLOR_HEX = "#f5f2ea"
 
 # 0 -> вниз, 1 -> вверх, 2 -> влево, 3 -> вправо
 DIRECTIONS = {
@@ -51,12 +51,12 @@ def hex_to_rgb01(hex_color):
     return tuple(int(hex_color[i:i + 2], 16) / 255 for i in (0, 2, 4))
 
 
-def blend_with_background(color, alpha, background=BACKGROUND):
+def blend_with_background(color, alpha, background):
     return tuple(alpha * c + (1 - alpha) * bg for c, bg in zip(color, background))
 
 
-def color_for_digit(target_rgb, alpha):
-    return blend_with_background(target_rgb, alpha)
+def color_for_digit(target_rgb, alpha, background):
+    return blend_with_background(target_rgb, alpha, background)
 
 
 def ask_settings():
@@ -80,7 +80,7 @@ def ask_settings():
     return colors_by_digit, alpha, increment
 
 
-def run_once(pen, steps, length, colors_by_digit, alpha, increment):
+def run_once(pen, steps, length, colors_by_digit, alpha, increment, background_rgb):
     pen.penup()
     pen.goto(0, 0)
     pen.setheading(0)
@@ -93,7 +93,7 @@ def run_once(pen, steps, length, colors_by_digit, alpha, increment):
         number = random.randint(0, 3)
         if number == previous_number:
             current_length += increment
-        pen.pencolor(*color_for_digit(colors_by_digit[number], alpha))
+        pen.pencolor(*color_for_digit(colors_by_digit[number], alpha, background_rgb))
         pen.setheading(DIRECTIONS[number])
         pen.forward(current_length)
         previous_number = number
@@ -102,11 +102,17 @@ def run_once(pen, steps, length, colors_by_digit, alpha, increment):
 def draw_random_walk(steps=STEPS, length=LINE_LENGTH):
     screen = turtle.Screen()
     screen.title("Случайное рисование")
+
+    bg_hex_input = input(f"Цвет холста в HEX (Enter — {DEFAULT_CANVAS_COLOR_HEX}): ").strip()
+    bg_hex = bg_hex_input if bg_hex_input else DEFAULT_CANVAS_COLOR_HEX
+    screen.bgcolor(bg_hex)
+    background_rgb = hex_to_rgb01(bg_hex)
+
     pen = turtle.Turtle()
     pen.speed(0)
     pen.hideturtle()
 
-    run_once(pen, steps, length, *ask_settings())
+    run_once(pen, steps, length, *ask_settings(), background_rgb)
 
     while True:
         again = input(
@@ -114,7 +120,7 @@ def draw_random_walk(steps=STEPS, length=LINE_LENGTH):
         ).strip().lower()
         if again != "y":
             break
-        run_once(pen, steps, length, *ask_settings())
+        run_once(pen, steps, length, *ask_settings(), background_rgb)
 
     filename = input(
         "Сохранить картинку в файл? Введите имя файла (Enter — пропустить): "
