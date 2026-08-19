@@ -1,0 +1,184 @@
+/* styles.css — интерфейс конструктора карт */
+:root {
+  --bg: #14171d;
+  --panel: #1b1f27;
+  --panel-2: #232833;
+  --line: #303747;
+  --text: #e6ebf2;
+  --muted: #97a2b4;
+  --accent: #d8a657;
+  --accent-2: #7fb7e8;
+  --radius: 10px;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0; height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.45 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  overscroll-behavior: none;
+}
+
+#app { display: flex; height: 100%; }
+
+/* ---------------- панель ---------------- */
+
+#panel {
+  width: 320px;
+  flex: 0 0 320px;
+  background: var(--panel);
+  border-right: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.panel-head {
+  padding: 16px 16px 12px;
+  border-bottom: 1px solid var(--line);
+}
+.panel-head h1 {
+  margin: 0;
+  font: 600 15px/1.25 ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: .02em;
+}
+.panel-head h1 span { display: block; color: var(--muted); font-weight: 400; }
+.city-name {
+  margin: 10px 0 0;
+  font: 700 22px/1.2 "Iowan Old Style", Georgia, serif;
+  color: var(--accent);
+}
+
+.panel-scroll { overflow-y: auto; padding: 4px 16px 20px; flex: 1; min-height: 0; }
+
+.group { padding: 14px 0; border-bottom: 1px solid var(--line); }
+.group:last-of-type { border-bottom: none; }
+.group h2 {
+  margin: 0 0 10px;
+  font: 600 11px/1 ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.hint { margin: -4px 0 10px; font-size: 12px; color: var(--muted); }
+
+.row { display: flex; gap: 8px; }
+.row.buttons { margin-bottom: 10px; }
+.row.wrap { flex-wrap: wrap; }
+.row.checks { flex-wrap: wrap; gap: 6px 14px; margin-top: 4px; }
+
+button {
+  flex: 1;
+  padding: 9px 10px;
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  font: inherit;
+  cursor: pointer;
+  transition: background .12s, border-color .12s, transform .06s;
+}
+button:hover { background: #2c3342; border-color: #414b5f; }
+button:active { transform: translateY(1px); }
+button.primary { background: var(--accent); border-color: var(--accent); color: #241a08; font-weight: 600; }
+button.primary:hover { background: #e6b569; }
+button#btnReroll, button#btnUndo { flex: 0 0 44px; }
+button b { color: var(--muted); font-weight: 600; }
+button.primary b { color: inherit; }
+
+.field { display: block; margin-bottom: 10px; }
+.field > span { display: block; margin-bottom: 5px; font-size: 12px; color: var(--muted); }
+input[type=text], select {
+  width: 100%;
+  padding: 8px 10px;
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  font: inherit;
+}
+input[type=text]:focus, select:focus { outline: 2px solid var(--accent-2); outline-offset: -1px; }
+
+.slider { display: block; margin-bottom: 12px; }
+.slider > span { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+.slider b { color: var(--text); font-weight: 600; }
+input[type=range] {
+  width: 100%; height: 4px; -webkit-appearance: none; appearance: none;
+  background: var(--line); border-radius: 4px; outline: none;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 16px; height: 16px; border-radius: 50%;
+  background: var(--accent); cursor: pointer; border: 2px solid var(--panel);
+}
+input[type=range]::-moz-range-thumb {
+  width: 14px; height: 14px; border: 2px solid var(--panel);
+  border-radius: 50%; background: var(--accent); cursor: pointer;
+}
+
+.check { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; }
+.check input { accent-color: var(--accent); width: 15px; height: 15px; }
+
+/* кисть кварталов */
+.brush { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; margin-bottom: 12px; }
+.brush button {
+  display: flex; align-items: center; gap: 7px;
+  padding: 7px 8px; font-size: 12.5px; text-align: left;
+}
+.brush button i {
+  width: 11px; height: 11px; border-radius: 3px; flex: 0 0 auto;
+  background: currentColor; opacity: .95;
+}
+.brush button.active { border-color: var(--accent); background: #33302a; }
+
+/* статистика */
+.stats { margin: 0; display: grid; gap: 7px; }
+.stats > div { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.stats dt { color: var(--muted); font-size: 12.5px; }
+.stats dd { margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+.foot { margin: 14px 0 0; font-size: 11.5px; color: var(--muted); line-height: 1.6; }
+.foot b { color: var(--text); }
+
+/* ---------------- карта ---------------- */
+
+#stage { position: relative; flex: 1; min-width: 0; }
+#map { display: block; width: 100%; height: 100%; cursor: grab; touch-action: none; }
+#map.dragging { cursor: grabbing; }
+#map.painting { cursor: crosshair; }
+
+.toast {
+  position: absolute; left: 50%; bottom: 24px; transform: translate(-50%, 12px);
+  padding: 9px 16px; border-radius: 999px;
+  background: rgba(20, 23, 29, .92); border: 1px solid var(--line);
+  font-size: 13px; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s;
+}
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+.tip {
+  position: absolute; padding: 5px 9px; border-radius: 8px;
+  background: rgba(20, 23, 29, .92); border: 1px solid var(--line);
+  font-size: 12px; pointer-events: none; opacity: 0; transition: opacity .12s;
+  white-space: nowrap; transform: translate(12px, -50%);
+}
+.tip.show { opacity: 1; }
+
+#panelToggle {
+  position: absolute; top: 12px; left: 12px; display: none;
+  width: 40px; height: 40px; flex: none; font-size: 17px;
+  background: rgba(20, 23, 29, .92);
+}
+
+@media (max-width: 820px) {
+  #app { flex-direction: column-reverse; }
+  #panel {
+    width: 100%; flex: 0 0 46%; border-right: none; border-top: 1px solid var(--line);
+  }
+  #panel.hidden { display: none; }
+  #panelToggle { display: block; }
+  .brush { grid-template-columns: repeat(3, 1fr); }
+}

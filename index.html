@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Конструктор карт городов</title>
+<meta name="description" content="Процедурный конструктор карт городов на основе генератора случайных чисел.">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="app">
+  <aside id="panel">
+    <header class="panel-head">
+      <h1>Конструктор карт<span>городов</span></h1>
+      <p class="city-name" id="cityName">—</p>
+    </header>
+
+    <div class="panel-scroll">
+      <section class="group">
+        <div class="row buttons">
+          <button id="btnRandom" class="primary">🎲 Случайный город</button>
+          <button id="btnReroll" title="Перегенерировать с текущим зерном">⟳</button>
+        </div>
+        <label class="field">
+          <span>Зерно (seed)</span>
+          <input id="seed" type="text" spellcheck="false" autocomplete="off">
+        </label>
+      </section>
+
+      <section class="group">
+        <h2>Планировка</h2>
+        <label class="field">
+          <span>Эпоха</span>
+          <select id="era">
+            <option value="medieval">Средневековая</option>
+            <option value="modern">Современная</option>
+          </select>
+        </label>
+        <label class="slider"><span>Кольцевые улицы <b id="ringsVal">5</b></span>
+          <input id="rings" type="range" min="2" max="8" step="1"></label>
+        <label class="slider"><span>Радиальные проспекты <b id="radialsVal">9</b></span>
+          <input id="radials" type="range" min="3" max="20" step="1"></label>
+        <label class="slider"><span>Извилистость <b id="irrVal">55</b>%</span>
+          <input id="irr" type="range" min="0" max="100" step="1"></label>
+        <label class="slider"><span>Плотность застройки <b id="densVal">100</b>%</span>
+          <input id="dens" type="range" min="50" max="180" step="5"></label>
+        <label class="slider"><span>Зелень <b id="parksVal">50</b>%</span>
+          <input id="parks" type="range" min="0" max="100" step="1"></label>
+        <div class="row checks">
+          <label class="check"><input id="river" type="checkbox"><span>Река</span></label>
+          <label class="check"><input id="walls" type="checkbox"><span>Стены</span></label>
+          <label class="check"><input id="outskirts" type="checkbox"><span>Пригороды</span></label>
+        </div>
+      </section>
+
+      <section class="group">
+        <h2>Оформление</h2>
+        <label class="field">
+          <span>Стиль карты</span>
+          <select id="style"></select>
+        </label>
+        <div class="row checks">
+          <label class="check"><input id="labels" type="checkbox" checked><span>Подписи</span></label>
+          <label class="check"><input id="tint" type="checkbox"><span>Типы кварталов</span></label>
+        </div>
+      </section>
+
+      <section class="group">
+        <h2>Кисть кварталов</h2>
+        <p class="hint">Выберите тип и щёлкните по кварталу на карте. ПКМ — вернуть случайный тип.</p>
+        <div id="brush" class="brush"></div>
+        <div class="row buttons">
+          <button id="btnClearEdits">Сбросить правки <b id="editCount">0</b></button>
+          <button id="btnUndo" title="Отменить (Ctrl+Z)">↶</button>
+        </div>
+      </section>
+
+      <section class="group">
+        <h2>Город в цифрах</h2>
+        <dl class="stats">
+          <div><dt>Население</dt><dd id="stPop">—</dd></div>
+          <div><dt>Строений</dt><dd id="stBuildings">—</dd></div>
+          <div><dt>Площадь в стенах</dt><dd id="stArea">—</dd></div>
+          <div><dt>Кварталов</dt><dd id="stQuarters">—</dd></div>
+        </dl>
+      </section>
+
+      <section class="group">
+        <h2>Экспорт</h2>
+        <div class="row buttons wrap">
+          <button id="btnPng">PNG</button>
+          <button id="btnJson">JSON</button>
+          <button id="btnLoad">Загрузить</button>
+          <button id="btnLink">Ссылка</button>
+        </div>
+        <input id="fileInput" type="file" accept="application/json" hidden>
+      </section>
+
+      <p class="foot">Колесо — масштаб · перетаскивание — сдвиг · <b>R</b> — новый город · <b>F</b> — вписать в экран</p>
+    </div>
+  </aside>
+
+  <main id="stage">
+    <canvas id="map"></canvas>
+    <div id="toast" class="toast"></div>
+    <div id="tip" class="tip"></div>
+    <button id="panelToggle" title="Панель">☰</button>
+  </main>
+</div>
+
+<script src="src/rng.js"></script>
+<script src="src/geometry.js"></script>
+<script src="src/names.js"></script>
+<script src="src/generator.js"></script>
+<script src="src/render.js"></script>
+<script src="src/app.js"></script>
+</body>
+</html>
