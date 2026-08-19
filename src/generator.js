@@ -299,6 +299,7 @@
       const floors = rng.int(cfg.floors[0], cfg.floors[1]);
       cell.buildings.push({
         poly, c, area: areaM2, floors,
+        box: boxFromRect(cell.map, r),
         tone: cfg.color,
         shade: rng.int(0, 3),
         pop: Math.round(areaM2 * floors * cfg.dens),
@@ -357,6 +358,7 @@
       const w = r0 * rng.range(0.75, 1.05), h = r0 * rng.range(0.6, 0.95);
       core.buildings.push({
         poly: rotRect([0, 0], w, h, a), c: [0, 0], area: w * h, floors: rng.int(4, 7),
+        box: { c: [0, 0], w, h, a },
         tone: 'civic', shade: 0, pop: Math.round(w * h * 0.01),
       });
       const towers = rng.int(3, 5);
@@ -379,6 +381,7 @@
         const p = [Math.cos(t) * rr, Math.sin(t) * rr];
         core.buildings.push({
           poly: rotRect(p, w, h, t + Math.PI / 2), c: p, area: w * h, floors: rng.int(2, 4),
+          box: { c: p, w, h, a: t + Math.PI / 2 },
           tone: 'civic', shade: rng.int(0, 3), pop: Math.round(w * h * 0.02),
         });
       }
@@ -387,6 +390,18 @@
         core.decor.push({ type: 'tree', p: [Math.cos(t) * r0 * 1.05, Math.sin(t) * r0 * 1.05], r: rng.range(6, 10) });
       }
     }
+  }
+
+  /** Ориентированный прямоугольник дома: центр, стороны, поворот. */
+  function boxFromRect(map, r) {
+    const p00 = map(r.u0, r.t0), p10 = map(r.u1, r.t0);
+    const p11 = map(r.u1, r.t1), p01 = map(r.u0, r.t1);
+    return {
+      c: [(p00[0] + p10[0] + p11[0] + p01[0]) / 4, (p00[1] + p10[1] + p11[1] + p01[1]) / 4],
+      w: (G.dist(p00, p10) + G.dist(p01, p11)) / 2,
+      h: (G.dist(p00, p01) + G.dist(p10, p11)) / 2,
+      a: Math.atan2((p10[1] - p00[1]) + (p11[1] - p01[1]), (p10[0] - p00[0]) + (p11[0] - p01[0])),
+    };
   }
 
   function rotRect(c, w, h, a) {

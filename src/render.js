@@ -63,6 +63,30 @@
       },
       glow: '#ffc978',
     },
+    engraving: {
+      title: 'Гравюра 1556',
+      flavor: 'engraving',
+      bg: '#c3cf98', outer: '#cdd8a3', ground: '#ece0c1', vignette: 'rgba(95,95,45,0.26)',
+      road: '#f4ecd4', roadEdge: 'rgba(105,72,40,0.32)',
+      water: '#b7cdd6', waterDeep: '#a2bcc8', waterEdge: 'rgba(70,105,120,0.55)',
+      park: '#aabd80', forest: '#93a96b', tree: '#7d9a5c', treeEdge: '#4d6636', pond: '#b7cdd6',
+      field: '#cbd598', fieldLine: 'rgba(95,110,55,0.45)',
+      wall: '#b0492c', wallEdge: '#5c2a17', tower: '#c25c38', dome: '#6f8f6a',
+      ink: '#3f2d1c', inkSoft: 'rgba(63,45,28,0.62)',
+      frame: '#b5462b', paper: '#f0e5c8',
+      shadow: 'rgba(110,80,45,0.20)', shadowOff: 2,
+      labelFont: 'italic 600 12px "Iowan Old Style", Georgia, "Times New Roman", serif',
+      labelBgAlpha: 0.55,
+      houseWall: '#e8dcbc', houseWallEdge: '#6b4a2a',
+      tones: {
+        old:   { fills: ['#c05f2e', '#b1512a', '#cd7040', '#a94a26'], stroke: '#63301a' },
+        house: { fills: ['#c76a35', '#bb5c2c', '#d4794a', '#b0522a'], stroke: '#63301a' },
+        trade: { fills: ['#cb7433', '#c06529', '#d68448', '#b65c26'], stroke: '#66341a' },
+        civic: { fills: ['#94a884', '#a2b492', '#879b78', '#adbd9d'], stroke: '#4b5c44' },
+        work:  { fills: ['#b0603a', '#a45531', '#bd6f48', '#98492b'], stroke: '#5c2f1b' },
+      },
+      glow: null,
+    },
     modern: {
       title: 'День',
       bg: '#dce2e6', outer: '#e6ece0', ground: '#e0e5e9', vignette: 'rgba(90,110,125,0.16)',
@@ -134,6 +158,62 @@
     return city._paths;
   }
 
+  /**
+   * Домики «как на старой гравюре»: кровля с коньком и стена, уходящая вниз.
+   * Всё складывается в несколько Path2D и кэшируется до следующей правки.
+   */
+  function pictorialPaths(city) {
+    if (city._picto && city._pictoVersion === city.version) return city._picto;
+    const roofs = new Map();
+    const walls = new Path2D();
+    const ridges = new Path2D();
+
+    const add = (cell) => {
+      for (const b of cell.buildings) {
+        const box = b.box;
+        if (!box) continue;
+        const ca = Math.cos(box.a), sa = Math.sin(box.a);
+        const w = box.w, h = box.h;
+        const pts = [[-w / 2, -h / 2], [w / 2, -h / 2], [w / 2, h / 2], [-w / 2, h / 2]]
+          .map((p) => [box.c[0] + p[0] * ca - p[1] * sa, box.c[1] + p[0] * sa + p[1] * ca]);
+
+        const key = b.tone + ':' + b.shade;
+        let roof = roofs.get(key);
+        if (!roof) { roof = new Path2D(); roofs.set(key, roof); }
+        roof.moveTo(pts[0][0], pts[0][1]);
+        for (let i = 1; i < 4; i++) roof.lineTo(pts[i][0], pts[i][1]);
+        roof.closePath();
+
+        // стена — под нижним (самым южным) ребром кровли
+        let edge = 0, low = -Infinity;
+        for (let i = 0; i < 4; i++) {
+          const my = (pts[i][1] + pts[(i + 1) % 4][1]) / 2;
+          if (my > low) { low = my; edge = i; }
+        }
+        const p1 = pts[edge], p2 = pts[(edge + 1) % 4];
+        const d = Math.min(13, Math.max(3, Math.min(w, h) * 0.58)) * (1 + (b.floors - 1) * 0.18);
+        walls.moveTo(p1[0], p1[1]);
+        walls.lineTo(p2[0], p2[1]);
+        walls.lineTo(p2[0], p2[1] + d);
+        walls.lineTo(p1[0], p1[1] + d);
+        walls.closePath();
+
+        // конёк вдоль длинной стороны
+        const mid = (a, b2) => [(a[0] + b2[0]) / 2, (a[1] + b2[1]) / 2];
+        const r1 = w >= h ? mid(pts[3], pts[0]) : mid(pts[0], pts[1]);
+        const r2 = w >= h ? mid(pts[1], pts[2]) : mid(pts[2], pts[3]);
+        ridges.moveTo(r1[0], r1[1]);
+        ridges.lineTo(r2[0], r2[1]);
+      }
+    };
+    for (const c of city.cells) add(c);
+    add(city.core);
+
+    city._picto = { roofs: Array.from(roofs.entries()), walls, ridges };
+    city._pictoVersion = city.version;
+    return city._picto;
+  }
+
   /* ------------------------------------------------------------------ */
 
   function render(ctx, city, opts) {
@@ -155,6 +235,11 @@
     const lw = (px) => px / s; // толщина в экранных пикселях
 
     // --- земля ---
+    if (st.flavor === 'engraving') {
+      ctx.strokeStyle = st.fieldLine;
+      ctx.lineWidth = Math.max(lw(0.8), 1.4);
+      ctx.stroke(outerHatchPath(city));
+    }
     fillPoly(ctx, ringPoly(city, city.ringsN), st.outer);
     fillPoly(ctx, city.wall.pts, st.ground);
 
@@ -210,8 +295,16 @@
     ctx.setTransform(opts.dpr, 0, 0, opts.dpr, 0, 0);
     if (st.vignette) drawVignette(ctx, W, H, st);
     if (opts.showLabels) drawLabels(ctx, city, st, view, opts);
-    drawTitle(ctx, city, st, W);
-    drawCompass(ctx, city, st, W, H, view);
+    if (st.flavor === 'engraving') {
+      drawCompass(ctx, city, st, W, H, view, -1);
+      drawFrame(ctx, W, H, st);
+      drawBanner(ctx, city, st, W);
+      drawArms(ctx, city, st);
+      drawCartouche(ctx, city, st, W, H);
+    } else {
+      drawTitle(ctx, city, st, W);
+      drawCompass(ctx, city, st, W, H, view, 1);
+    }
     ctx.restore();
   }
 
@@ -313,13 +406,21 @@
         strokePath(ctx, d.line, false);
       } else if (d.type === 'tree') {
         if (!showTrees) continue;
+        if (st.flavor === 'engraving' && scale > 0.6) { // ствол под кроной
+          ctx.strokeStyle = st.treeEdge;
+          ctx.lineWidth = 1.6;
+          ctx.beginPath();
+          ctx.moveTo(d.p[0], d.p[1] + d.r * 0.4);
+          ctx.lineTo(d.p[0], d.p[1] + d.r * 1.5);
+          ctx.stroke();
+        }
         ctx.fillStyle = st.tree;
         ctx.strokeStyle = st.treeEdge;
         ctx.lineWidth = 1;
         ctx.beginPath();
         ctx.arc(d.p[0], d.p[1], d.r, 0, TAU);
         ctx.fill();
-        if (scale > 0.5) ctx.stroke();
+        if (scale > 0.5 || st.flavor === 'engraving') ctx.stroke();
       } else if (d.type === 'pond') {
         ctx.fillStyle = st.pond;
         ctx.beginPath();
@@ -344,6 +445,7 @@
   }
 
   function drawBuildings(ctx, city, st, scale, lw) {
+    if (st.flavor === 'engraving') { drawPictorialBuildings(ctx, city, st, scale, lw); return; }
     const groups = buildingPaths(city);
     // тени
     if (st.shadow && scale > 0.12) {
@@ -385,7 +487,72 @@
     }
   }
 
+  function drawPictorialBuildings(ctx, city, st, scale, lw) {
+    const g = pictorialPaths(city);
+    const detail = scale > 0.22;
+
+    // стены домов — под кровлями, поэтому рисуются первыми
+    ctx.fillStyle = st.houseWall;
+    ctx.fill(g.walls);
+    if (detail) {
+      ctx.strokeStyle = st.houseWallEdge;
+      ctx.lineWidth = Math.max(lw(0.6), 0.6);
+      ctx.stroke(g.walls);
+    }
+
+    for (const [key, path] of g.roofs) {
+      const tone = st.tones[key.split(':')[0]] || st.tones.house;
+      ctx.fillStyle = tone.fills[(+key.split(':')[1] || 0) % tone.fills.length];
+      ctx.fill(path);
+    }
+    if (detail) {
+      ctx.lineWidth = Math.max(lw(0.7), 0.7);
+      for (const [key, path] of g.roofs) {
+        const tone = st.tones[key.split(':')[0]] || st.tones.house;
+        ctx.strokeStyle = tone.stroke;
+        ctx.stroke(path);
+      }
+    }
+    if (scale > 0.4) { // конёк кровли
+      ctx.strokeStyle = 'rgba(70,38,20,0.55)';
+      ctx.lineWidth = Math.max(lw(0.6), 0.6);
+      ctx.stroke(g.ridges);
+    }
+  }
+
+  /** Зубцы крепостной стены — небольшие прямоугольники по внешней стороне. */
+  function merlonPath(city) {
+    if (city._merlons && city._merlonsVersion === city.version) return city._merlons;
+    const path = new Path2D();
+    const pts = city.wall.pts;
+    let acc = 0, flip = 0;
+    for (let i = 0; i < pts.length - 1; i++) {
+      const a = pts[i], b = pts[i + 1];
+      const seg = G.dist(a, b);
+      acc += seg;
+      if (acc < 17) continue;
+      acc = 0;
+      if ((flip++ % 2) === 1) continue;
+      const len = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+      const tx = (b[0] - a[0]) / len, ty = (b[1] - a[1]) / len;
+      const nr = Math.hypot(a[0], a[1]) || 1;
+      const nx = a[0] / nr, ny = a[1] / nr;       // наружу от центра города
+      const cx = a[0] + nx * 5, cy = a[1] + ny * 5;
+      const hw = 5, hh = 5;
+      const q = [[-hw, -hh], [hw, -hh], [hw, hh], [-hw, hh]].map(
+        (p) => [cx + tx * p[0] + nx * p[1], cy + ty * p[0] + ny * p[1]]
+      );
+      path.moveTo(q[0][0], q[0][1]);
+      for (let k = 1; k < 4; k++) path.lineTo(q[k][0], q[k][1]);
+      path.closePath();
+    }
+    city._merlons = path;
+    city._merlonsVersion = city.version;
+    return path;
+  }
+
   function drawWalls(ctx, city, st, lw) {
+    if (st.flavor === 'engraving') { drawEngravedWalls(ctx, city, st, lw); return; }
     const w = city.wall;
     ctx.strokeStyle = st.wallEdge;
     ctx.lineWidth = Math.max(lw(2), 16);
@@ -413,6 +580,77 @@
     }
   }
 
+  /** Штриховка полей за городом — «резцовая» фактура оригинала. */
+  function outerHatchPath(city) {
+    if (city._hatch) return city._hatch;
+    const rng = CM.rngFor(city.seed, 'hatch');
+    const path = new Path2D();
+    const rIn = city.rings[city.ringsN].r * 1.03;
+    const rOut = city.rings[city.ringsN].r * 2.6;
+    const step = 46;
+    for (let y = -rOut; y <= rOut; y += step) {
+      for (let x = -rOut; x <= rOut; x += step) {
+        const px = x + rng.range(-16, 16), py = y + rng.range(-16, 16);
+        const d = Math.hypot(px, py);
+        if (d < rIn || d > rOut) continue;
+        const a = Math.atan2(py, px) + Math.PI / 2 + rng.range(-0.25, 0.25);
+        const len = rng.range(9, 18);
+        path.moveTo(px - Math.cos(a) * len, py - Math.sin(a) * len);
+        path.lineTo(px + Math.cos(a) * len, py + Math.sin(a) * len);
+      }
+    }
+    city._hatch = path;
+    return path;
+  }
+
+  function drawEngravedWalls(ctx, city, st, lw) {
+    const w = city.wall;
+    ctx.strokeStyle = st.wallEdge;
+    ctx.lineWidth = Math.max(lw(2.2), 15);
+    strokePath(ctx, w.pts, true);
+    ctx.strokeStyle = st.wall;
+    ctx.lineWidth = Math.max(lw(1.4), 10.5);
+    strokePath(ctx, w.pts, true);
+
+    const merlons = merlonPath(city);
+    ctx.fillStyle = st.tower;
+    ctx.fill(merlons);
+    ctx.strokeStyle = st.wallEdge;
+    ctx.lineWidth = Math.max(lw(0.6), 1.2);
+    ctx.stroke(merlons);
+
+    // башни с шатровыми кровлями
+    for (const t of w.towers) {
+      const r = t.r;
+      ctx.fillStyle = st.tower;
+      ctx.strokeStyle = st.wallEdge;
+      ctx.lineWidth = Math.max(lw(0.8), 1.6);
+      ctx.beginPath();
+      ctx.arc(t.p[0], t.p[1], r, 0, TAU);
+      ctx.fill(); ctx.stroke();
+      ctx.fillStyle = st.dome;
+      ctx.beginPath();
+      ctx.moveTo(t.p[0] - r, t.p[1] - r * 0.3);
+      ctx.lineTo(t.p[0], t.p[1] - r * 2.4);
+      ctx.lineTo(t.p[0] + r, t.p[1] - r * 0.3);
+      ctx.closePath();
+      ctx.fill(); ctx.stroke();
+    }
+
+    for (const g of w.gates) {
+      ctx.save();
+      ctx.translate(g.p[0], g.p[1]);
+      ctx.rotate(g.a);
+      ctx.fillStyle = st.road;
+      ctx.strokeStyle = st.wallEdge;
+      ctx.lineWidth = Math.max(lw(0.6), 1.2);
+      const gw = g.main ? 24 : 17;
+      ctx.fillRect(-10, -gw / 2, 20, gw);
+      ctx.strokeRect(-10, -gw / 2, 20, gw);
+      ctx.restore();
+    }
+  }
+
   function drawVignette(ctx, W, H, st) {
     const g = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.35, W / 2, H / 2, Math.max(W, H) * 0.75);
     g.addColorStop(0, 'rgba(0,0,0,0)');
@@ -427,7 +665,7 @@
     ctx.textBaseline = 'middle';
 
     if (view.scale > 0.18) {
-      ctx.font = '600 12px ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif';
+      ctx.font = st.labelFont || '600 12px ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif';
       const all = city.cells.concat([city.core]);
       const placed = [];
       for (const c of all) {
@@ -439,8 +677,8 @@
         placed.push(p);
         const text = c.label;
         const m = ctx.measureText(text);
-        ctx.globalAlpha = 0.72;
-        ctx.fillStyle = st.bg;
+        ctx.globalAlpha = st.labelBgAlpha === undefined ? 0.72 : st.labelBgAlpha;
+        ctx.fillStyle = st.paper || st.bg;
         ctx.fillRect(p[0] - m.width / 2 - 5, p[1] - 9, m.width + 10, 18);
         ctx.globalAlpha = 1;
         ctx.fillStyle = st.ink;
@@ -469,8 +707,8 @@
     ctx.restore();
   }
 
-  function drawCompass(ctx, city, st, W, H, view) {
-    const x = W - 58, y = H - 92;
+  function drawCompass(ctx, city, st, W, H, view, side) {
+    const x = side < 0 ? 62 : W - 58, y = H - 92;
     ctx.save();
     ctx.strokeStyle = st.inkSoft;
     ctx.fillStyle = st.ink;
@@ -487,7 +725,7 @@
     const meters = 200;
     const px = meters * view.scale;
     if (px > 24 && px < W * 0.6) {
-      const bx = W - 30 - px, by = H - 34;
+      const bx = side < 0 ? 34 : W - 30 - px, by = H - 34;
       ctx.strokeStyle = st.ink;
       ctx.lineWidth = 2;
       ctx.beginPath();
@@ -499,6 +737,174 @@
       ctx.font = '500 11px ui-sans-serif, system-ui, sans-serif';
       ctx.fillText(meters + ' м', bx + px / 2, by - 10);
     }
+    ctx.restore();
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Убранство листа: рамка, картуш с названием, герб, легенда            */
+  /* ------------------------------------------------------------------ */
+
+  function drawFrame(ctx, W, H, st) {
+    ctx.save();
+    ctx.strokeStyle = st.frame;
+    ctx.lineWidth = 7;
+    ctx.strokeRect(8, 8, W - 16, H - 16);
+    ctx.strokeStyle = st.ink;
+    ctx.lineWidth = 1.2;
+    ctx.strokeRect(15.5, 15.5, W - 31, H - 31);
+    ctx.restore();
+  }
+
+  /** Заголовок в ленте — как «MOSCAVW» на гравюрах Брауна и Хогенберга. */
+  function drawBanner(ctx, city, st, W) {
+    const text = city.name.toUpperCase();
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    if ('letterSpacing' in ctx) ctx.letterSpacing = '6px';
+    ctx.font = '600 26px "Iowan Old Style", Georgia, "Times New Roman", serif';
+    const tw = ctx.measureText(text).width;
+    const bw = Math.min(W - 90, tw + 96), bh = 40;
+    const bx = W / 2 - bw / 2, by = 22;
+
+    ctx.fillStyle = st.paper;
+    ctx.fillRect(bx, by, bw, bh);
+    ctx.strokeStyle = st.ink;
+    ctx.lineWidth = 1.6;
+    ctx.strokeRect(bx, by, bw, bh);
+    ctx.strokeStyle = st.frame;
+    ctx.lineWidth = 1.2;
+    ctx.strokeRect(bx + 4, by + 4, bw - 8, bh - 8);
+
+    ctx.fillStyle = st.ink;
+    ctx.fillText(text, W / 2, by + bh / 2 + 1);
+    if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
+    // засечки-«крылья» по краям ленты
+    ctx.strokeStyle = st.frame;
+    ctx.lineWidth = 2;
+    for (const dir of [-1, 1]) {
+      const x = W / 2 + dir * (bw / 2);
+      ctx.beginPath();
+      ctx.moveTo(x, by + 6);
+      ctx.lineTo(x + dir * 12, by + bh / 2);
+      ctx.lineTo(x, by + bh - 6);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  const TINCTURES = ['#a8322a', '#2c5b87', '#2f2f2f', '#3b6b3a', '#71408f', '#9c5a1e'];
+  const METALS = ['#dcbe57', '#ece3cc'];
+
+  /** Герб города — тоже из зерна: деление щита и фигура. */
+  function drawArms(ctx, city, st) {
+    const rng = CM.rngFor(city.seed, 'arms');
+    const field = rng.pick(TINCTURES);
+    const second = rng.pick(TINCTURES.filter((c) => c !== field));
+    const metal = rng.pick(METALS);
+    const division = rng.weighted([['plain', 4], ['pale', 2], ['fess', 2], ['bend', 1.5], ['chief', 1.5]]);
+    const charge = rng.weighted([['cross', 3], ['star', 3], ['roundel', 2], ['tower', 3], ['bars', 1.5]]);
+
+    const w = 52, h = 64, cx = 58, cy = 74;
+    ctx.save();
+    ctx.translate(cx, cy);
+
+    const shield = new Path2D();
+    shield.moveTo(-w / 2, -h / 2);
+    shield.lineTo(w / 2, -h / 2);
+    shield.lineTo(w / 2, h * 0.1);
+    shield.quadraticCurveTo(w / 2, h / 2, 0, h / 2);
+    shield.quadraticCurveTo(-w / 2, h / 2, -w / 2, h * 0.1);
+    shield.closePath();
+
+    ctx.save();
+    ctx.clip(shield);
+    ctx.fillStyle = field;
+    ctx.fillRect(-w, -h, w * 2, h * 2);
+    ctx.fillStyle = second;
+    if (division === 'pale') ctx.fillRect(0, -h, w, h * 2);
+    else if (division === 'fess') ctx.fillRect(-w, 0, w * 2, h);
+    else if (division === 'chief') ctx.fillRect(-w, -h, w * 2, h / 2 + h * 0.18);
+    else if (division === 'bend') {
+      ctx.beginPath();
+      ctx.moveTo(-w / 2, -h / 2); ctx.lineTo(w / 2, h / 2); ctx.lineTo(w / 2, -h / 2);
+      ctx.closePath(); ctx.fill();
+    }
+
+    ctx.fillStyle = metal;
+    ctx.strokeStyle = 'rgba(40,28,16,0.55)';
+    ctx.lineWidth = 1;
+    if (charge === 'cross') {
+      ctx.fillRect(-5, -h * 0.34, 10, h * 0.62);
+      ctx.fillRect(-w * 0.32, -6, w * 0.64, 11);
+    } else if (charge === 'star') {
+      ctx.beginPath();
+      for (let i = 0; i < 10; i++) {
+        const r = i % 2 ? 7.5 : 18;
+        const a = -Math.PI / 2 + (i * Math.PI) / 5;
+        const fn = i ? 'lineTo' : 'moveTo';
+        ctx[fn](Math.cos(a) * r, Math.sin(a) * r + 1);
+      }
+      ctx.closePath(); ctx.fill();
+    } else if (charge === 'roundel') {
+      ctx.beginPath(); ctx.arc(0, 0, 13, 0, TAU); ctx.fill();
+    } else if (charge === 'tower') {
+      ctx.fillRect(-13, -6, 26, 24);
+      ctx.fillRect(-13, -14, 7, 9);
+      ctx.fillRect(-3.5, -14, 7, 9);
+      ctx.fillRect(6, -14, 7, 9);
+      ctx.fillStyle = field;
+      ctx.fillRect(-4, 6, 8, 12);
+    } else {
+      ctx.fillRect(-w * 0.36, -12, w * 0.72, 8);
+      ctx.fillRect(-w * 0.36, 4, w * 0.72, 8);
+    }
+    ctx.restore();
+
+    ctx.strokeStyle = '#3a2716';
+    ctx.lineWidth = 2.4;
+    ctx.stroke(shield);
+    ctx.strokeStyle = METALS[0];
+    ctx.lineWidth = 1;
+    ctx.stroke(shield);
+    ctx.restore();
+  }
+
+  /** Легенда в нижнем правом углу — как латинская врезка на оригинале. */
+  function drawCartouche(ctx, city, st, W, H) {
+    const s = city.stats;
+    const lines = [
+      'Дворов ' + s.buildings.toLocaleString('ru-RU') + ', жителей около ' + s.population.toLocaleString('ru-RU') + '.',
+      'В стенах ' + s.areaKm2.toFixed(2).replace('.', ',') + ' кв. км, кварталов ' + s.quarters + '.',
+      'Чертёж составлен по зерну ' + city.seed + '.',
+    ];
+    ctx.save();
+    ctx.font = 'italic 12px "Iowan Old Style", Georgia, "Times New Roman", serif';
+    let tw = 0;
+    for (const l of lines) tw = Math.max(tw, ctx.measureText(l).width);
+    ctx.font = 'italic 600 15px "Iowan Old Style", Georgia, serif';
+    tw = Math.max(tw, ctx.measureText(city.name).width);
+
+    const bw = tw + 30, bh = 30 + lines.length * 17;
+    const bx = W - 26 - bw, by = H - 26 - bh;
+    ctx.fillStyle = st.paper;
+    ctx.globalAlpha = 0.94;
+    ctx.fillRect(bx, by, bw, bh);
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = st.frame;
+    ctx.lineWidth = 2;
+    ctx.strokeRect(bx, by, bw, bh);
+    ctx.strokeStyle = st.ink;
+    ctx.lineWidth = 0.8;
+    ctx.strokeRect(bx + 3.5, by + 3.5, bw - 7, bh - 7);
+
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillStyle = st.ink;
+    ctx.font = 'italic 600 15px "Iowan Old Style", Georgia, serif';
+    ctx.fillText(city.name, bx + 15, by + 24);
+    ctx.font = 'italic 12px "Iowan Old Style", Georgia, "Times New Roman", serif';
+    lines.forEach((l, i) => ctx.fillText(l, bx + 15, by + 42 + i * 17));
     ctx.restore();
   }
 
