@@ -16,17 +16,33 @@
       <h1>Plinko</h1>
       <span class="brand-sub">симулятор</span>
     </div>
-    <div class="balance-box">
-      <span class="balance-label">Баланс</span>
-      <span class="balance-value" id="balance">1 000.00</span>
+    <div class="header-right">
+      <select id="themeSelect" title="Тема оформления">
+        <option value="dark">Тёмная</option>
+        <option value="neon">Неон</option>
+        <option value="space">Космос</option>
+      </select>
+      <div class="balance-box">
+        <span class="balance-label">Баланс</span>
+        <span class="balance-value" id="balance">1 000.00</span>
+      </div>
     </div>
   </header>
 
   <main class="layout">
 
-    <section class="board-wrap">
-      <canvas id="board" width="760" height="640"></canvas>
-      <div class="board-toast" id="toast"></div>
+    <section class="board-col">
+      <div class="board-wrap">
+        <canvas id="board" width="760" height="640"></canvas>
+        <div class="board-toast" id="toast"></div>
+      </div>
+      <div class="pnl-card">
+        <div class="pnl-head">
+          <label>P&amp;L сессии</label>
+          <span id="pnlValue">+0.00</span>
+        </div>
+        <canvas id="pnlCanvas" width="720" height="70"></canvas>
+      </div>
     </section>
 
     <aside class="panel">
@@ -55,6 +71,16 @@
         </div>
       </div>
 
+      <div class="field">
+        <label>Точка сброса: <span id="biasValue">центр</span></label>
+        <input type="range" id="biasRange" min="-100" max="100" step="5" value="0">
+      </div>
+
+      <label class="toggle-row">
+        <input type="checkbox" id="turboCheck">
+        <span>⚡ Турбо-режим — мгновенный результат</span>
+      </label>
+
       <div class="field-row">
         <button class="btn btn-primary" id="dropBtn">Бросить шарик</button>
         <button class="btn" id="dropTenBtn">×10</button>
@@ -64,6 +90,46 @@
         <button class="btn btn-auto" id="autoBtn">Автоигра</button>
         <input type="number" id="autoCount" value="20" min="1" step="1" title="Количество бросков">
       </div>
+
+      <details class="adv">
+        <summary>Стратегия автоигры</summary>
+        <div class="adv-body">
+          <div class="field-row">
+            <div class="field">
+              <label>При проигрыше</label>
+              <select id="onLossSelect">
+                <option value="none">Без изменений</option>
+                <option value="reset">Сбросить к базовой</option>
+                <option value="increase" selected>Увеличить на %</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>При выигрыше</label>
+              <select id="onWinSelect">
+                <option value="none">Без изменений</option>
+                <option value="reset" selected>Сбросить к базовой</option>
+                <option value="increase">Увеличить на %</option>
+              </select>
+            </div>
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label>Шаг изменения, %</label>
+              <input type="number" id="stratPct" value="100" min="1" step="1">
+            </div>
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label>Стоп при прибыли</label>
+              <input type="number" id="stopProfit" value="0" min="0" step="1">
+            </div>
+            <div class="field">
+              <label>Стоп при убытке</label>
+              <input type="number" id="stopLoss" value="0" min="0" step="1">
+            </div>
+          </div>
+        </div>
+      </details>
 
       <div class="stats">
         <div class="stat">
@@ -82,12 +148,66 @@
           <span class="stat-label">Бросков</span>
           <span class="stat-value" id="statCount">0</span>
         </div>
+        <div class="stat">
+          <span class="stat-label">Серия побед</span>
+          <span class="stat-value" id="statStreak">0</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Лучшая серия</span>
+          <span class="stat-value" id="statMaxStreak">0</span>
+        </div>
       </div>
 
       <button class="btn btn-ghost" id="resetBtn">Сбросить баланс</button>
 
+      <details class="adv">
+        <summary>Достижения <span id="achCount">0/0</span></summary>
+        <div class="ach-grid" id="achGrid"></div>
+      </details>
+
+      <details class="adv" id="fairnessDetails">
+        <summary>Честная игра (Provably Fair)</summary>
+        <div class="adv-body fairness">
+          <p class="fx-note">Каждый бросок детерминирован хэшем: серверный сид + клиентский сид + номер броска. Смените сид, чтобы раскрыть предыдущий и проверить любой прошлый бросок.</p>
+          <div class="fx-row"><span>Хэш текущего сида</span></div>
+          <code id="seedHashOut" class="fx-code">…</code>
+          <div class="field">
+            <label>Клиентский сид</label>
+            <input type="text" id="clientSeedInput">
+          </div>
+          <div class="fx-row"><span>Nonce (номер броска в этом сиде)</span><code id="nonceOut">0</code></div>
+          <button class="btn btn-ghost" id="rotateSeedBtn">Раскрыть и сменить сид</button>
+          <div id="revealedSeeds" class="revealed-list"></div>
+
+          <div class="verify-box">
+            <label>Проверка броска</label>
+            <div class="field-row">
+              <input type="text" id="vServerSeed" placeholder="раскрытый серверный сид">
+            </div>
+            <div class="field-row">
+              <input type="text" id="vClientSeed" placeholder="клиентский сид">
+              <input type="number" id="vNonce" placeholder="nonce">
+            </div>
+            <div class="field-row">
+              <select id="vRisk">
+                <option value="low">Низкий</option>
+                <option value="medium">Средний</option>
+                <option value="high">Высокий</option>
+              </select>
+              <input type="number" id="vRows" placeholder="ряды" min="8" max="16">
+              <input type="number" id="vBias" placeholder="сброс" step="0.05" min="-1" max="1">
+            </div>
+            <button class="btn" id="verifyBtn">Проверить</button>
+            <div id="verifyResult" class="verify-result"></div>
+          </div>
+        </div>
+      </details>
+
       <div class="history">
-        <label>История</label>
+        <div class="history-head">
+          <label>История</label>
+          <button class="mini-btn" id="exportCsvBtn">CSV</button>
+        </div>
         <ul id="historyList"></ul>
       </div>
 
