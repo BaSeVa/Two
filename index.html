@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Plinko — симулятор</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='15' fill='%230e1116'/%3E%3Ccircle cx='16' cy='9' r='2.4' fill='%237c5cff'/%3E%3Ccircle cx='11' cy='16' r='2.4' fill='%237c5cff'/%3E%3Ccircle cx='21' cy='16' r='2.4' fill='%237c5cff'/%3E%3Ccircle cx='16' cy='23' r='2.6' fill='%233ddc97'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app">
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-dot"></span>
+      <h1>Plinko</h1>
+      <span class="brand-sub">симулятор</span>
+    </div>
+    <div class="balance-box">
+      <span class="balance-label">Баланс</span>
+      <span class="balance-value" id="balance">1 000.00</span>
+    </div>
+  </header>
+
+  <main class="layout">
+
+    <section class="board-wrap">
+      <canvas id="board" width="760" height="640"></canvas>
+      <div class="board-toast" id="toast"></div>
+    </section>
+
+    <aside class="panel">
+
+      <div class="field">
+        <label>Ставка</label>
+        <div class="bet-row">
+          <button class="chip-btn" id="betHalf">½</button>
+          <input type="number" id="betInput" value="10" min="0.1" step="0.1">
+          <button class="chip-btn" id="betDouble">2×</button>
+        </div>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label>Риск</label>
+          <select id="riskSelect">
+            <option value="low">Низкий</option>
+            <option value="medium" selected>Средний</option>
+            <option value="high">Высокий</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Ряды: <span id="rowsValue">14</span></label>
+          <input type="range" id="rowsRange" min="8" max="16" step="1" value="14">
+        </div>
+      </div>
+
+      <div class="field-row">
+        <button class="btn btn-primary" id="dropBtn">Бросить шарик</button>
+        <button class="btn" id="dropTenBtn">×10</button>
+      </div>
+
+      <div class="field-row">
+        <button class="btn btn-auto" id="autoBtn">Автоигра</button>
+        <input type="number" id="autoCount" value="20" min="1" step="1" title="Количество бросков">
+      </div>
+
+      <div class="stats">
+        <div class="stat">
+          <span class="stat-label">Всего ставок</span>
+          <span class="stat-value" id="statWagered">0.00</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Прибыль</span>
+          <span class="stat-value" id="statProfit">0.00</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Макс. множитель</span>
+          <span class="stat-value" id="statMax">0.00×</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Бросков</span>
+          <span class="stat-value" id="statCount">0</span>
+        </div>
+      </div>
+
+      <button class="btn btn-ghost" id="resetBtn">Сбросить баланс</button>
+
+      <div class="history">
+        <label>История</label>
+        <ul id="historyList"></ul>
+      </div>
+
+    </aside>
+  </main>
+
+  <footer class="foot">
+    Виртуальная игра для развлечения. Реальные деньги не используются.
+  </footer>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
