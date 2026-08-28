@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Клеточный автомат — игра «Жизнь»</title>
+<title>Лаборатория клеточных автоматов</title>
 <style>
   :root {
     --bg: #0f1117;
@@ -11,9 +11,10 @@
     --accent: #4fd1c5;
     --accent-dim: #2c7a72;
     --text: #e2e8f0;
+    --muted: #8b93a7;
     --grid-line: #262a38;
-    --cell-alive: #4fd1c5;
     --cell-dead: #12141c;
+    --danger: #e05263;
   }
   * { box-sizing: border-box; }
   body {
@@ -28,39 +29,45 @@
     padding: 24px 12px 40px;
   }
   h1 {
-    font-size: 1.4rem;
+    font-size: 1.5rem;
     margin: 0 0 4px;
     letter-spacing: 0.02em;
+    text-align: center;
   }
   p.subtitle {
     margin: 0 0 20px;
-    color: #8b93a7;
+    color: var(--muted);
     font-size: 0.9rem;
     text-align: center;
-    max-width: 560px;
+    max-width: 640px;
   }
   .panel {
     background: var(--panel);
     border-radius: 12px;
-    padding: 14px 18px;
+    padding: 12px 16px;
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
     align-items: center;
     justify-content: center;
-    margin-bottom: 16px;
+    margin-bottom: 12px;
     box-shadow: 0 4px 20px rgba(0,0,0,0.35);
+    max-width: 960px;
   }
-  button, select {
+  .mode-panel { display: none; }
+  .mode-panel.active { display: flex; }
+  button, select, input[type="text"], input[type="number"] {
     background: #232637;
     color: var(--text);
     border: 1px solid #333852;
     border-radius: 8px;
-    padding: 8px 14px;
-    font-size: 0.9rem;
+    padding: 8px 12px;
+    font-size: 0.88rem;
     cursor: pointer;
     transition: background 0.15s, border-color 0.15s;
   }
+  input[type="text"], input[type="number"] { cursor: text; }
+  input.invalid { border-color: var(--danger); }
   button:hover, select:hover { border-color: var(--accent-dim); }
   button.primary {
     background: var(--accent);
@@ -69,12 +76,19 @@
     font-weight: 600;
   }
   button.primary:hover { background: #6ee0d4; }
+  button.brushBtn.active {
+    background: var(--accent);
+    color: #0f1117;
+    border-color: var(--accent);
+    font-weight: 600;
+  }
   label {
     display: flex;
     align-items: center;
     gap: 6px;
     font-size: 0.85rem;
     color: #b5bdcf;
+    white-space: nowrap;
   }
   input[type="range"] { accent-color: var(--accent); }
   canvas {
@@ -82,7 +96,7 @@
     border: 1px solid var(--grid-line);
     border-radius: 8px;
     box-shadow: 0 4px 24px rgba(0,0,0,0.4);
-    cursor: pointer;
+    cursor: crosshair;
     touch-action: none;
     max-width: 100%;
   }
@@ -91,197 +105,179 @@
     display: flex;
     gap: 20px;
     font-size: 0.85rem;
-    color: #8b93a7;
+    color: var(--muted);
   }
   .stats b { color: var(--text); }
-  .footer-hint {
-    margin-top: 18px;
-    font-size: 0.78rem;
-    color: #5c6377;
+  .info {
+    margin-top: 16px;
+    max-width: 640px;
     text-align: center;
-    max-width: 500px;
+  }
+  .info p {
+    font-size: 0.83rem;
+    color: #a3abbe;
+    margin: 4px 0;
+  }
+  .legend {
+    font-size: 0.78rem;
+    color: var(--muted);
+    margin-top: 6px;
+  }
+  .legend span { margin: 0 8px; white-space: nowrap; }
+  .swatch {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    margin-right: 4px;
+    vertical-align: middle;
+  }
+  .kbd-hint {
+    margin-top: 14px;
+    font-size: 0.75rem;
+    color: #5c6377;
+  }
+  .kbd-hint kbd {
+    background: #232637;
+    border: 1px solid #333852;
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-family: monospace;
   }
 </style>
 </head>
 <body>
 
-<h1>Клеточный автомат: игра «Жизнь»</h1>
-<p class="subtitle">Классический клеточный автомат Джона Конвея. Кликните по полю, чтобы оживить клетки, или выберите готовый паттерн.</p>
+<h1>Лаборатория клеточных автоматов</h1>
+<p class="subtitle">Пять разных клеточных автоматов в одном интерфейсе: обобщённая игра «Жизнь» с настраиваемыми правилами, Wireworld (цифровая логика), Мозг Брайана, Муравей Лэнгтона и элементарный одномерный автомат Вольфрама.</p>
 
-<div class="panel">
+<div class="panel" id="universalPanel">
+  <select id="modeSelect">
+    <option value="life">Игра «Жизнь» (обобщённая)</option>
+    <option value="wireworld">Wireworld (цифровая логика)</option>
+    <option value="brain">Мозг Брайана</option>
+    <option value="ant">Муравей Лэнгтона</option>
+    <option value="elementary">Элементарный автомат (1D)</option>
+  </select>
   <button id="playBtn" class="primary">▶ Старт</button>
   <button id="stepBtn">Шаг</button>
   <button id="randomBtn">Случайно</button>
   <button id="clearBtn">Очистить</button>
-  <select id="patternSelect">
-    <option value="">— Паттерн —</option>
+  <label>Скорость <input type="range" id="speedRange" min="1" max="60" value="12"></label>
+</div>
+
+<div class="panel mode-panel" data-mode="life">
+  <select id="lifeRuleSelect">
+    <option value="">— готовое правило —</option>
+    <option value="B3/S23">Conway's Life (B3/S23)</option>
+    <option value="B36/S23">HighLife (B36/S23)</option>
+    <option value="B3678/S34678">Day &amp; Night (B3678/S34678)</option>
+    <option value="B2/S">Seeds (B2/S)</option>
+    <option value="B3/S012345678">Life without Death (B3/S012345678)</option>
+    <option value="B1357/S1357">Replicator (B1357/S1357)</option>
+    <option value="B3/S12345">Maze (B3/S12345)</option>
+    <option value="B35678/S5678">Diamoeba (B35678/S5678)</option>
+  </select>
+  <label>Правило (B/S): <input type="text" id="lifeRuleInput" value="B3/S23" spellcheck="false" style="width:120px"></label>
+  <button id="lifeRuleApply">Применить</button>
+  <select id="lifePatternSelect">
+    <option value="">— паттерн —</option>
     <option value="glider">Планёр</option>
     <option value="pulsar">Пульсар</option>
     <option value="gosper">Ружьё Госпера</option>
-    <option value="lwss">Лёгкий космический корабль</option>
+    <option value="lwss">Космический корабль</option>
   </select>
-  <label>Скорость
-    <input type="range" id="speedRange" min="1" max="60" value="12">
-  </label>
+</div>
+
+<div class="panel mode-panel" data-mode="wireworld">
+  <span>Кисть:</span>
+  <button class="brushBtn" data-brush="0">Пусто</button>
+  <button class="brushBtn active" data-brush="3">Проводник</button>
+  <button class="brushBtn" data-brush="1">Электрон (голова)</button>
+  <button class="brushBtn" data-brush="2">Электрон (хвост)</button>
+  <select id="wireworldPreset">
+    <option value="">— пример схемы —</option>
+    <option value="ring">Кольцевой генератор</option>
+    <option value="pulse-line">Импульс по проводу</option>
+  </select>
+</div>
+
+<div class="panel mode-panel" data-mode="ant">
+  <button id="addAntBtn">Добавить муравья</button>
+  <span style="font-size:0.85rem;color:#b5bdcf">Каждый муравей: белая клетка — поворот направо; чёрная — налево</span>
+</div>
+
+<div class="panel mode-panel" data-mode="elementary">
+  <label>Правило (0–255): <input type="number" id="ruleNumberInput" min="0" max="255" value="30" style="width:70px"></label>
+  <select id="elementaryPreset">
+    <option value="">— известное правило —</option>
+    <option value="30">Правило 30 (хаос)</option>
+    <option value="90">Правило 90 (треугольник Серпинского)</option>
+    <option value="110">Правило 110 (тьюринг-полное)</option>
+    <option value="184">Правило 184 (модель трафика)</option>
+    <option value="54">Правило 54</option>
+    <option value="60">Правило 60</option>
+    <option value="250">Правило 250</option>
+  </select>
+  <label><input type="checkbox" id="randomSeedCheckbox"> случайная начальная строка</label>
 </div>
 
 <canvas id="board"></canvas>
 
 <div class="stats">
-  <span>Поколение: <b id="genCount">0</b></span>
-  <span>Живых клеток: <b id="aliveCount">0</b></span>
+  <span><b id="genLabel">Поколение</b>: <b id="genCount">0</b></span>
+  <span><span id="activeLabel">Активных клеток</span>: <b id="activeCount">0</b></span>
 </div>
 
-<p class="footer-hint">Правила: живая клетка с 2–3 соседями выживает; мёртвая клетка ровно с 3 соседями оживает; во всех остальных случаях клетка умирает или остаётся мёртвой.</p>
+<div class="legend" id="legend"></div>
+
+<div class="info">
+  <p id="modeDesc"></p>
+</div>
+
+<p class="kbd-hint">Клик/перетаскивание — рисование на поле. Горячие клавиши: <kbd>Space</kbd> — старт/пауза, <kbd>S</kbd> — шаг, <kbd>R</kbd> — случайно, <kbd>C</kbd> — очистить.</p>
 
 <script>
 (() => {
-  const COLS = 80, ROWS = 50, CELL = 12;
   const canvas = document.getElementById('board');
   const ctx = canvas.getContext('2d');
-  canvas.width = COLS * CELL;
-  canvas.height = ROWS * CELL;
 
-  let grid = makeGrid();
-  let running = false;
-  let generation = 0;
-  let rafId = null;
-  let lastStep = 0;
-  let stepIntervalMs = 1000 / 12;
+  const DIR_VECT = [[0,-1],[1,0],[0,1],[-1,0]];
+  const ANT_COLORS = ['#ff5c5c','#ffd166','#5cd6ff','#a78bfa','#ff8ac0','#8affc1'];
 
-  function makeGrid() {
-    return Array.from({ length: ROWS }, () => new Uint8Array(COLS));
-  }
+  const MODE_CONFIGS = {
+    life:       { cols: 90,  rows: 55,  cell: 10, gridLines: true  },
+    wireworld:  { cols: 90,  rows: 55,  cell: 10, gridLines: true  },
+    brain:      { cols: 90,  rows: 55,  cell: 10, gridLines: true  },
+    ant:        { cols: 101, rows: 101, cell: 6,  gridLines: false },
+    elementary: { cols: 151, rows: 120, cell: 6,  gridLines: false }
+  };
 
-  function countAlive() {
-    let n = 0;
-    for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) n += grid[y][x];
-    return n;
-  }
+  const PALETTES = {
+    life:       { 1: '#4fd1c5' },
+    wireworld:  { 1: '#7fdbff', 2: '#ff8a4c', 3: '#e0c341' },
+    brain:      { 1: '#4fd1c5', 2: '#6b46c1' },
+    ant:        { 1: '#4fd1c5' },
+    elementary: { 1: '#4fd1c5' }
+  };
 
-  function neighbors(g, x, y) {
-    let count = 0;
-    for (let dy = -1; dy <= 1; dy++) {
-      for (let dx = -1; dx <= 1; dx++) {
-        if (dx === 0 && dy === 0) continue;
-        const ny = (y + dy + ROWS) % ROWS;
-        const nx = (x + dx + COLS) % COLS;
-        count += g[ny][nx];
-      }
-    }
-    return count;
-  }
+  const DESCRIPTIONS = {
+    life: 'Обобщённая игра «Жизнь»: правило задаётся в нотации B/S (Born/Survive). Например, B3/S23 — классическая жизнь Конвея: мёртвая клетка с ровно 3 живыми соседями оживает, живая клетка с 2 или 3 соседями выживает. Меняйте правило прямо во время симуляции и наблюдайте, как меняется поведение одного и того же паттерна.',
+    wireworld: 'Wireworld — автомат для моделирования цифровой логики. 4 состояния: пусто, проводник, голова электрона, хвост электрона. Голова всегда превращается в хвост, хвост — в проводник, а проводник становится головой, если у него ровно 1 или 2 соседа-головы. Так по проводам «бегут» электрические сигналы.',
+    brain: 'Мозг Брайана — автомат с 3 состояниями: выключена, включена (горит), угасает. Включённая клетка всегда гаснет и переходит в состояние «угасает», угасающая — выключается, а выключенная загорается, если у неё ровно 2 включённых соседа. Даёт характерные бегущие «искры» и хаотичные волны.',
+    ant: 'Муравей Лэнгтона — простейший автомат с агентом. На белой клетке муравей поворачивает направо, красит её в чёрный и идёт вперёд; на чёрной — поворачивает налево, красит в белый и идёт вперёд. Из хаоса через ~10000 шагов вырастает «автострада» — регулярная диагональная структура.',
+    elementary: 'Элементарный клеточный автомат Вольфрама: одномерная строка клеток, каждое новое поколение рисуется под предыдущим. Следующее состояние клетки зависит только от неё самой и двух соседей — всего 8 комбинаций, а правило (число 0–255) задаёт исход для каждой из них в двоичном виде.'
+  };
 
-  function step() {
-    const next = makeGrid();
-    for (let y = 0; y < ROWS; y++) {
-      for (let x = 0; x < COLS; x++) {
-        const alive = grid[y][x];
-        const n = neighbors(grid, x, y);
-        next[y][x] = alive ? (n === 2 || n === 3 ? 1 : 0) : (n === 3 ? 1 : 0);
-      }
-    }
-    grid = next;
-    generation++;
-    updateStats();
-  }
+  const LEGENDS = {
+    life: `<span><span class="swatch" style="background:#4fd1c5"></span>живая</span><span><span class="swatch" style="background:#12141c;border:1px solid #333"></span>мёртвая</span>`,
+    wireworld: `<span><span class="swatch" style="background:#e0c341"></span>проводник</span><span><span class="swatch" style="background:#7fdbff"></span>голова электрона</span><span><span class="swatch" style="background:#ff8a4c"></span>хвост электрона</span>`,
+    brain: `<span><span class="swatch" style="background:#4fd1c5"></span>горит</span><span><span class="swatch" style="background:#6b46c1"></span>угасает</span><span><span class="swatch" style="background:#12141c;border:1px solid #333"></span>выключена</span>`,
+    ant: `<span><span class="swatch" style="background:#4fd1c5"></span>чёрная клетка</span><span>цветной квадрат — муравей</span>`,
+    elementary: `<span><span class="swatch" style="background:#4fd1c5"></span>клетка «1»</span><span><span class="swatch" style="background:#12141c;border:1px solid #333"></span>клетка «0»</span>`
+  };
 
-  function draw() {
-    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--cell-dead');
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--grid-line');
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    for (let x = 0; x <= COLS; x++) {
-      ctx.moveTo(x * CELL + 0.5, 0);
-      ctx.lineTo(x * CELL + 0.5, canvas.height);
-    }
-    for (let y = 0; y <= ROWS; y++) {
-      ctx.moveTo(0, y * CELL + 0.5);
-      ctx.lineTo(canvas.width, y * CELL + 0.5);
-    }
-    ctx.stroke();
-
-    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--cell-alive');
-    for (let y = 0; y < ROWS; y++) {
-      for (let x = 0; x < COLS; x++) {
-        if (grid[y][x]) ctx.fillRect(x * CELL + 1, y * CELL + 1, CELL - 2, CELL - 2);
-      }
-    }
-  }
-
-  function updateStats() {
-    document.getElementById('genCount').textContent = generation;
-    document.getElementById('aliveCount').textContent = countAlive();
-  }
-
-  function loop(ts) {
-    if (running) {
-      if (ts - lastStep >= stepIntervalMs) {
-        step();
-        draw();
-        lastStep = ts;
-      }
-      rafId = requestAnimationFrame(loop);
-    }
-  }
-
-  function setRunning(v) {
-    running = v;
-    const btn = document.getElementById('playBtn');
-    btn.textContent = running ? '⏸ Пауза' : '▶ Старт';
-    if (running) {
-      lastStep = 0;
-      rafId = requestAnimationFrame(loop);
-    } else if (rafId) {
-      cancelAnimationFrame(rafId);
-    }
-  }
-
-  function toggleCell(clientX, clientY) {
-    const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-    const x = Math.floor((clientX - rect.left) * scaleX / CELL);
-    const y = Math.floor((clientY - rect.top) * scaleY / CELL);
-    if (x >= 0 && x < COLS && y >= 0 && y < ROWS) {
-      grid[y][x] = grid[y][x] ? 0 : 1;
-      draw();
-      updateStats();
-    }
-  }
-
-  let isPointerDown = false;
-  canvas.addEventListener('pointerdown', (e) => {
-    isPointerDown = true;
-    toggleCell(e.clientX, e.clientY);
-  });
-  canvas.addEventListener('pointermove', (e) => {
-    if (isPointerDown) toggleCell(e.clientX, e.clientY);
-  });
-  window.addEventListener('pointerup', () => { isPointerDown = false; });
-
-  document.getElementById('playBtn').addEventListener('click', () => setRunning(!running));
-  document.getElementById('stepBtn').addEventListener('click', () => { step(); draw(); });
-  document.getElementById('clearBtn').addEventListener('click', () => {
-    grid = makeGrid();
-    generation = 0;
-    draw();
-    updateStats();
-  });
-  document.getElementById('randomBtn').addEventListener('click', () => {
-    grid = makeGrid();
-    for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) grid[y][x] = Math.random() < 0.25 ? 1 : 0;
-    generation = 0;
-    draw();
-    updateStats();
-  });
-  document.getElementById('speedRange').addEventListener('input', (e) => {
-    stepIntervalMs = 1000 / Number(e.target.value);
-  });
-
-  const PATTERNS = {
+  const LIFE_PATTERNS = {
     glider: [[0,1],[1,2],[2,0],[2,1],[2,2]],
     pulsar: [
       [0,2],[0,3],[0,4],[0,8],[0,9],[0,10],
@@ -314,28 +310,487 @@
     ]
   };
 
-  function placePattern(name) {
-    const cells = PATTERNS[name];
-    if (!cells) return;
-    grid = makeGrid();
-    const offY = Math.floor(ROWS / 2) - 6;
-    const offX = Math.floor(COLS / 2) - 12;
-    for (const [dy, dx] of cells) {
-      const y = (offY + dy + ROWS) % ROWS;
-      const x = (offX + dx + COLS) % COLS;
-      grid[y][x] = 1;
+  let mode = 'life';
+  let COLS, ROWS, CELL, gridLinesEnabled;
+  let grid = [];
+  let running = false;
+  let generation = 0;
+  let currentRow = 0;
+  let rafId = null;
+  let lastStep = 0;
+  let stepIntervalMs = 1000 / 12;
+  let currentRule = { B: [3], S: [2, 3] };
+  let brushState = 3;
+  let ants = [];
+
+  function makeGrid(rows, cols) {
+    return Array.from({ length: rows }, () => new Uint8Array(cols));
+  }
+
+  function neighborCount(g, x, y, matchFn, wrap) {
+    let c = 0;
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        if (dx === 0 && dy === 0) continue;
+        let ny = y + dy, nx = x + dx;
+        if (wrap) {
+          ny = (ny + ROWS) % ROWS;
+          nx = (nx + COLS) % COLS;
+        } else if (ny < 0 || ny >= ROWS || nx < 0 || nx >= COLS) {
+          continue;
+        }
+        if (matchFn(g[ny][nx])) c++;
+      }
+    }
+    return c;
+  }
+
+  function parseRule(str) {
+    const m = str.trim().match(/^B(\d*)\/S(\d*)$/i);
+    if (!m) return null;
+    return {
+      B: m[1] ? m[1].split('').map(Number) : [],
+      S: m[2] ? m[2].split('').map(Number) : []
+    };
+  }
+
+  function stepLife() {
+    const next = makeGrid(ROWS, COLS);
+    const { B, S } = currentRule;
+    for (let y = 0; y < ROWS; y++) {
+      for (let x = 0; x < COLS; x++) {
+        const alive = grid[y][x] === 1;
+        const n = neighborCount(grid, x, y, s => s === 1, true);
+        next[y][x] = alive ? (S.includes(n) ? 1 : 0) : (B.includes(n) ? 1 : 0);
+      }
+    }
+    grid = next;
+    generation++;
+  }
+
+  function stepWireworld() {
+    const next = makeGrid(ROWS, COLS);
+    for (let y = 0; y < ROWS; y++) {
+      for (let x = 0; x < COLS; x++) {
+        const s = grid[y][x];
+        if (s === 0) next[y][x] = 0;
+        else if (s === 1) next[y][x] = 2;
+        else if (s === 2) next[y][x] = 3;
+        else {
+          const heads = neighborCount(grid, x, y, v => v === 1, false);
+          next[y][x] = (heads === 1 || heads === 2) ? 1 : 3;
+        }
+      }
+    }
+    grid = next;
+    generation++;
+  }
+
+  function stepBrain() {
+    const next = makeGrid(ROWS, COLS);
+    for (let y = 0; y < ROWS; y++) {
+      for (let x = 0; x < COLS; x++) {
+        const s = grid[y][x];
+        if (s === 1) next[y][x] = 2;
+        else if (s === 2) next[y][x] = 0;
+        else {
+          const on = neighborCount(grid, x, y, v => v === 1, true);
+          next[y][x] = on === 2 ? 1 : 0;
+        }
+      }
+    }
+    grid = next;
+    generation++;
+  }
+
+  function stepAnt() {
+    for (const ant of ants) {
+      const cell = grid[ant.y][ant.x];
+      if (cell === 0) {
+        ant.dir = (ant.dir + 1) % 4;
+        grid[ant.y][ant.x] = 1;
+      } else {
+        ant.dir = (ant.dir + 3) % 4;
+        grid[ant.y][ant.x] = 0;
+      }
+      const v = DIR_VECT[ant.dir];
+      ant.x = (ant.x + v[0] + COLS) % COLS;
+      ant.y = (ant.y + v[1] + ROWS) % ROWS;
+    }
+    generation++;
+  }
+
+  function stepElementary() {
+    if (currentRow >= ROWS) { setRunning(false); return; }
+    const rule = Number(document.getElementById('ruleNumberInput').value) || 0;
+    const prev = grid[currentRow - 1];
+    const newRow = new Uint8Array(COLS);
+    for (let x = 0; x < COLS; x++) {
+      const left = prev[(x - 1 + COLS) % COLS];
+      const center = prev[x];
+      const right = prev[(x + 1) % COLS];
+      const pattern = (left << 2) | (center << 1) | right;
+      newRow[x] = (rule >> pattern) & 1;
+    }
+    grid[currentRow] = newRow;
+    currentRow++;
+    generation++;
+  }
+
+  function doStep() {
+    switch (mode) {
+      case 'life': stepLife(); break;
+      case 'wireworld': stepWireworld(); break;
+      case 'brain': stepBrain(); break;
+      case 'ant': stepAnt(); break;
+      case 'elementary': stepElementary(); break;
+    }
+  }
+
+  function draw() {
+    ctx.fillStyle = '#12141c';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    const palette = PALETTES[mode];
+    const pad = gridLinesEnabled ? 1 : 0;
+    for (let y = 0; y < ROWS; y++) {
+      const row = grid[y];
+      for (let x = 0; x < COLS; x++) {
+        const s = row[x];
+        if (s === 0) continue;
+        ctx.fillStyle = palette[s] || '#4fd1c5';
+        ctx.fillRect(x * CELL + pad, y * CELL + pad, CELL - 2 * pad, CELL - 2 * pad);
+      }
+    }
+
+    if (gridLinesEnabled) {
+      ctx.strokeStyle = '#262a38';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      for (let x = 0; x <= COLS; x++) {
+        ctx.moveTo(x * CELL + 0.5, 0);
+        ctx.lineTo(x * CELL + 0.5, canvas.height);
+      }
+      for (let y = 0; y <= ROWS; y++) {
+        ctx.moveTo(0, y * CELL + 0.5);
+        ctx.lineTo(canvas.width, y * CELL + 0.5);
+      }
+      ctx.stroke();
+    }
+
+    if (mode === 'ant') {
+      for (const ant of ants) {
+        ctx.fillStyle = ant.color;
+        ctx.fillRect(ant.x * CELL, ant.y * CELL, CELL, CELL);
+      }
+    }
+  }
+
+  function updateStats() {
+    const genLabel = document.getElementById('genLabel');
+    const genCount = document.getElementById('genCount');
+    const activeLabel = document.getElementById('activeLabel');
+    const activeCount = document.getElementById('activeCount');
+
+    if (mode === 'elementary') {
+      genLabel.textContent = 'Строка';
+      genCount.textContent = currentRow;
+      activeLabel.textContent = 'Правило';
+      activeCount.textContent = document.getElementById('ruleNumberInput').value;
+      return;
+    }
+
+    genLabel.textContent = 'Поколение';
+    genCount.textContent = generation;
+
+    if (mode === 'ant') {
+      activeLabel.textContent = 'Муравьёв';
+      activeCount.textContent = ants.length;
+      return;
+    }
+
+    let n = 0;
+    for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) if (grid[y][x] !== 0) n++;
+    activeLabel.textContent = 'Активных клеток';
+    activeCount.textContent = n;
+  }
+
+  function randomFill(density) {
+    grid = makeGrid(ROWS, COLS);
+    for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) grid[y][x] = Math.random() < density ? 1 : 0;
+    generation = 0;
+  }
+
+  function placeLifePattern(name) {
+    grid = makeGrid(ROWS, COLS);
+    const cells = LIFE_PATTERNS[name];
+    if (cells) {
+      const offY = Math.floor(ROWS / 2) - 6;
+      const offX = Math.floor(COLS / 2) - 12;
+      for (const [dy, dx] of cells) {
+        const y = (offY + dy + ROWS) % ROWS;
+        const x = (offX + dx + COLS) % COLS;
+        grid[y][x] = 1;
+      }
     }
     generation = 0;
+  }
+
+  function buildRing(x0, y0, w, h) {
+    const coords = [];
+    for (let x = x0; x < x0 + w; x++) coords.push([x, y0]);
+    for (let y = y0 + 1; y < y0 + h; y++) coords.push([x0 + w - 1, y]);
+    for (let x = x0 + w - 2; x >= x0; x--) coords.push([x, y0 + h - 1]);
+    for (let y = y0 + h - 2; y >= y0 + 1; y--) coords.push([x0, y]);
+    return coords;
+  }
+
+  function placeWireworldPreset(name) {
+    grid = makeGrid(ROWS, COLS);
+    if (name === 'ring') {
+      const coords = buildRing(10, 10, 40, 24);
+      coords.forEach(([x, y], i) => {
+        grid[y][x] = i === 0 ? 1 : (i === 1 ? 2 : 3);
+      });
+    } else if (name === 'pulse-line') {
+      const y = Math.floor(ROWS / 2);
+      const start = 5, end = COLS - 6;
+      for (let x = start; x <= end; x++) grid[y][x] = 3;
+      grid[y][start] = 2;
+      grid[y][start + 1] = 1;
+    }
+    generation = 0;
+  }
+
+  function resetAnts() {
+    ants = [{ x: Math.floor(COLS / 2), y: Math.floor(ROWS / 2), dir: 0, color: ANT_COLORS[0] }];
+  }
+
+  function addAnt() {
+    ants.push({
+      x: Math.floor(Math.random() * COLS),
+      y: Math.floor(Math.random() * ROWS),
+      dir: Math.floor(Math.random() * 4),
+      color: ANT_COLORS[ants.length % ANT_COLORS.length]
+    });
+  }
+
+  function initElementary(randomSeed) {
+    grid = makeGrid(ROWS, COLS);
+    if (randomSeed) {
+      for (let x = 0; x < COLS; x++) grid[0][x] = Math.random() < 0.5 ? 1 : 0;
+    } else {
+      grid[0][Math.floor(COLS / 2)] = 1;
+    }
+    currentRow = 1;
+    generation = 0;
+  }
+
+  function setRunning(v) {
+    running = v;
+    const btn = document.getElementById('playBtn');
+    btn.textContent = running ? '⏸ Пауза' : '▶ Старт';
+    if (running) {
+      lastStep = 0;
+      rafId = requestAnimationFrame(loop);
+    } else if (rafId) {
+      cancelAnimationFrame(rafId);
+    }
+  }
+
+  function loop(ts) {
+    if (!running) return;
+    if (ts - lastStep >= stepIntervalMs) {
+      doStep();
+      draw();
+      updateStats();
+      lastStep = ts;
+    }
+    rafId = requestAnimationFrame(loop);
+  }
+
+  function doClear() {
+    switch (mode) {
+      case 'life':
+      case 'wireworld':
+      case 'brain':
+        grid = makeGrid(ROWS, COLS);
+        generation = 0;
+        break;
+      case 'ant':
+        grid = makeGrid(ROWS, COLS);
+        resetAnts();
+        generation = 0;
+        break;
+      case 'elementary':
+        initElementary(document.getElementById('randomSeedCheckbox').checked);
+        break;
+    }
     draw();
     updateStats();
   }
 
-  document.getElementById('patternSelect').addEventListener('change', (e) => {
-    if (e.target.value) placePattern(e.target.value);
+  function doRandom() {
+    switch (mode) {
+      case 'life':
+        randomFill(0.25);
+        break;
+      case 'brain':
+        randomFill(0.12);
+        break;
+      case 'wireworld':
+        placeWireworldPreset('ring');
+        break;
+      case 'ant':
+        addAnt();
+        break;
+      case 'elementary':
+        document.getElementById('ruleNumberInput').value = Math.floor(Math.random() * 256);
+        initElementary(document.getElementById('randomSeedCheckbox').checked);
+        break;
+    }
+    draw();
+    updateStats();
+  }
+
+  function setMode(newMode) {
+    setRunning(false);
+    mode = newMode;
+    const cfg = MODE_CONFIGS[mode];
+    COLS = cfg.cols; ROWS = cfg.rows; CELL = cfg.cell;
+    gridLinesEnabled = cfg.gridLines;
+    canvas.width = COLS * CELL;
+    canvas.height = ROWS * CELL;
+    generation = 0;
+
+    switch (mode) {
+      case 'life': placeLifePattern('glider'); break;
+      case 'wireworld': placeWireworldPreset('ring'); break;
+      case 'brain': randomFill(0.12); break;
+      case 'ant': grid = makeGrid(ROWS, COLS); resetAnts(); break;
+      case 'elementary': initElementary(document.getElementById('randomSeedCheckbox').checked); break;
+    }
+
+    document.querySelectorAll('.mode-panel').forEach(p => p.classList.toggle('active', p.dataset.mode === mode));
+    document.getElementById('modeDesc').textContent = DESCRIPTIONS[mode];
+    document.getElementById('legend').innerHTML = LEGENDS[mode];
+    draw();
+    updateStats();
+  }
+
+  let isPointerDown = false;
+  let paintValue = 1;
+
+  function cellFromEvent(e) {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const x = Math.floor((e.clientX - rect.left) * scaleX / CELL);
+    const y = Math.floor((e.clientY - rect.top) * scaleY / CELL);
+    return { x, y };
+  }
+
+  function paintAt(x, y, initial) {
+    if (x < 0 || x >= COLS || y < 0 || y >= ROWS) return;
+    if (mode === 'life' || mode === 'brain' || mode === 'ant') {
+      if (initial) paintValue = grid[y][x] === 0 ? 1 : 0;
+      grid[y][x] = paintValue;
+    } else if (mode === 'wireworld') {
+      grid[y][x] = brushState;
+    } else if (mode === 'elementary') {
+      if (currentRow !== 1) return;
+      if (initial) paintValue = grid[0][x] === 0 ? 1 : 0;
+      grid[0][x] = paintValue;
+    }
+    draw();
+    updateStats();
+  }
+
+  canvas.addEventListener('pointerdown', (e) => {
+    isPointerDown = true;
+    const { x, y } = cellFromEvent(e);
+    paintAt(x, y, true);
+  });
+  canvas.addEventListener('pointermove', (e) => {
+    if (!isPointerDown) return;
+    const { x, y } = cellFromEvent(e);
+    paintAt(x, y, false);
+  });
+  window.addEventListener('pointerup', () => { isPointerDown = false; });
+
+  document.getElementById('modeSelect').addEventListener('change', (e) => setMode(e.target.value));
+  document.getElementById('playBtn').addEventListener('click', () => setRunning(!running));
+  document.getElementById('stepBtn').addEventListener('click', () => { doStep(); draw(); updateStats(); });
+  document.getElementById('clearBtn').addEventListener('click', doClear);
+  document.getElementById('randomBtn').addEventListener('click', doRandom);
+  document.getElementById('speedRange').addEventListener('input', (e) => {
+    stepIntervalMs = 1000 / Number(e.target.value);
+  });
+
+  const lifeRuleInput = document.getElementById('lifeRuleInput');
+  function applyLifeRule() {
+    const parsed = parseRule(lifeRuleInput.value);
+    if (parsed) {
+      currentRule = parsed;
+      lifeRuleInput.classList.remove('invalid');
+    } else {
+      lifeRuleInput.classList.add('invalid');
+    }
+  }
+  document.getElementById('lifeRuleApply').addEventListener('click', applyLifeRule);
+  document.getElementById('lifeRuleSelect').addEventListener('change', (e) => {
+    if (!e.target.value) return;
+    lifeRuleInput.value = e.target.value;
+    applyLifeRule();
+  });
+  document.getElementById('lifePatternSelect').addEventListener('change', (e) => {
+    if (!e.target.value) return;
+    placeLifePattern(e.target.value);
+    draw();
+    updateStats();
     e.target.value = '';
   });
 
-  placePattern('glider');
+  document.querySelectorAll('.brushBtn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      brushState = Number(btn.dataset.brush);
+      document.querySelectorAll('.brushBtn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    });
+  });
+  document.getElementById('wireworldPreset').addEventListener('change', (e) => {
+    if (!e.target.value) return;
+    placeWireworldPreset(e.target.value);
+    draw();
+    updateStats();
+    e.target.value = '';
+  });
+
+  document.getElementById('addAntBtn').addEventListener('click', () => { addAnt(); draw(); updateStats(); });
+
+  document.getElementById('ruleNumberInput').addEventListener('input', updateStats);
+  document.getElementById('elementaryPreset').addEventListener('change', (e) => {
+    if (!e.target.value) return;
+    document.getElementById('ruleNumberInput').value = e.target.value;
+    initElementary(document.getElementById('randomSeedCheckbox').checked);
+    draw();
+    updateStats();
+    e.target.value = '';
+  });
+  document.getElementById('randomSeedCheckbox').addEventListener('change', doClear);
+
+  window.addEventListener('keydown', (e) => {
+    const tag = document.activeElement.tagName;
+    if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+    switch (e.key.toLowerCase()) {
+      case ' ': e.preventDefault(); setRunning(!running); break;
+      case 's': doStep(); draw(); updateStats(); break;
+      case 'r': doRandom(); break;
+      case 'c': doClear(); break;
+    }
+  });
+
+  setMode('life');
 })();
 </script>
 
