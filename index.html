@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Судейство фигурного катания — ISU</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div id="app">
+    <header class="topbar">
+      <div class="brand">⛸ Судейство по системе ISU</div>
+      <nav class="tabs" id="tabs">
+        <button class="tab-btn active" data-tab="event">Соревнование</button>
+        <button class="tab-btn" data-tab="skaters">Участники</button>
+        <button class="tab-btn" data-tab="protocol">Протокол</button>
+        <button class="tab-btn" data-tab="results">Результаты</button>
+        <button class="tab-btn" data-tab="settings">Настройки</button>
+      </nav>
+      <div class="top-actions">
+        <button id="btnExport" class="btn btn-ghost" title="Сохранить данные в файл">Экспорт JSON</button>
+        <label class="btn btn-ghost" title="Загрузить данные из файла">
+          Импорт JSON
+          <input type="file" id="fileImport" accept="application/json" hidden />
+        </label>
+        <button id="btnReset" class="btn btn-danger" title="Очистить все данные">Очистить всё</button>
+      </div>
+    </header>
+
+    <main id="content">
+      <section id="tab-event" class="tab-panel active"></section>
+      <section id="tab-skaters" class="tab-panel"></section>
+      <section id="tab-protocol" class="tab-panel"></section>
+      <section id="tab-results" class="tab-panel"></section>
+      <section id="tab-settings" class="tab-panel"></section>
+    </main>
+  </div>
+
+  <div id="printOverlay" class="print-overlay" hidden>
+    <div class="print-toolbar no-print">
+      <button id="btnPrint" class="btn btn-primary">Печать / PDF</button>
+      <button id="btnClosePrint" class="btn btn-ghost">Закрыть</button>
+    </div>
+    <div id="printArea" class="print-area"></div>
+  </div>
+
+  <script src="js/data.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/scoring.js"></script>
+  <script src="js/report.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
