@@ -1,0 +1,236 @@
+import React from "react";
+import { AbsoluteFill, Easing, interpolate, useCurrentFrame } from "remotion";
+import {
+  FONT,
+  MUTED,
+  RED,
+  RaceBackground,
+  RedTag,
+  TEXT,
+  clamp,
+} from "../theme";
+import { GAP_P1_P2, LEADER } from "../data";
+import { KlingClip } from "../KlingClip";
+import { StartGrid3D } from "../three/Backdrops";
+
+export const INTRO_DURATION = 110;
+const LIGHT_STEP = 12;
+const FIRST_LIGHT = 14;
+const LIGHTS_OUT = FIRST_LIGHT + LIGHT_STEP * 4 + 18;
+// Крючок для TikTok: главный факт с первого кадра, затем его сменяет заголовок
+const HOOK_OUT = 40;
+const TITLE_IN = HOOK_OUT + 6;
+
+export const LightPod: React.FC<{ on: boolean }> = ({ on }) => (
+  <div
+    style={{
+      width: 136,
+      padding: "18px 0",
+      backgroundColor: "#111",
+      borderRadius: 22,
+      border: "4px solid #2a2a2a",
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      gap: 16,
+    }}
+  >
+    {[0, 1].map((k) => (
+      <div
+        key={k}
+        style={{
+          width: 92,
+          height: 92,
+          borderRadius: "50%",
+          backgroundColor: on ? "#ff1a0d" : "#2b0605",
+          boxShadow: on
+            ? "0 0 40px 10px rgba(255,30,10,0.75), inset 0 -8px 16px rgba(0,0,0,0.35)"
+            : "inset 0 -8px 16px rgba(0,0,0,0.5)",
+        }}
+      />
+    ))}
+  </div>
+);
+
+export const Intro: React.FC = () => {
+  const frame = useCurrentFrame();
+  const out = frame >= LIGHTS_OUT;
+
+  return (
+    <AbsoluteFill name="Intro">
+      <RaceBackground speed={out ? 2.5 : 0.4} />
+      <KlingClip
+        id="start"
+        fallback={<StartGrid3D lightsOut={LIGHTS_OUT} />}
+        opacity={interpolate(
+          frame,
+          [LIGHTS_OUT - 10, LIGHTS_OUT],
+          [0.25, 0.6],
+          clamp,
+        )}
+      />
+
+      <AbsoluteFill name="Lights" style={{ alignItems: "center", top: 260 }}>
+        <div
+          style={{
+            width: 860,
+            height: 18,
+            backgroundColor: "#222",
+            borderRadius: 9,
+            marginBottom: -6,
+          }}
+        />
+        <div style={{ display: "flex", gap: 26 }}>
+          {[0, 1, 2, 3, 4].map((i) => (
+            <LightPod
+              key={i}
+              on={!out && frame >= FIRST_LIGHT + i * LIGHT_STEP}
+            />
+          ))}
+        </div>
+      </AbsoluteFill>
+
+      <AbsoluteFill
+        name="Title"
+        style={{
+          top: 860,
+          alignItems: "center",
+          fontFamily: FONT,
+          color: TEXT,
+        }}
+      >
+        <div
+          style={{
+            fontSize: 64,
+            fontWeight: 800,
+            fontStyle: "italic",
+            color: MUTED,
+            letterSpacing: 4,
+            opacity: interpolate(
+              frame,
+              [TITLE_IN, TITLE_IN + 14],
+              [0, 1],
+              clamp,
+            ),
+          }}
+        >
+          FORMULA 1 · СЕЗОН 2026
+        </div>
+        <div
+          style={{
+            marginTop: 20,
+            fontSize: 132,
+            lineHeight: 1,
+            fontWeight: 900,
+            fontStyle: "italic",
+            textAlign: "center",
+            translate: interpolate(
+              frame,
+              [TITLE_IN, TITLE_IN + 18],
+              ["-1100px 0px", "0px 0px"],
+              {
+                ...clamp,
+                easing: Easing.bezier(0.16, 1, 0.3, 1),
+              },
+            ),
+          }}
+        >
+          ГОНКА ЗА
+        </div>
+        <div
+          style={{
+            fontSize: 104,
+            lineHeight: 1.05,
+            fontWeight: 900,
+            fontStyle: "italic",
+            textAlign: "center",
+            color: RED,
+            translate: interpolate(
+              frame,
+              [TITLE_IN + 4, TITLE_IN + 22],
+              ["1100px 0px", "0px 0px"],
+              {
+                ...clamp,
+                easing: Easing.bezier(0.16, 1, 0.3, 1),
+              },
+            ),
+          }}
+        >
+          ЧЕМПИОНСТВОМ
+        </div>
+      </AbsoluteFill>
+
+      <AbsoluteFill
+        name="Hook"
+        style={{
+          top: 760,
+          alignItems: "center",
+          fontFamily: FONT,
+          fontStyle: "italic",
+          color: TEXT,
+          opacity: interpolate(frame, [HOOK_OUT, HOOK_OUT + 6], [1, 0], clamp),
+          scale: interpolate(
+            frame,
+            [0, 6, HOOK_OUT, HOOK_OUT + 6],
+            [1.07, 1, 1, 1.2],
+            {
+              ...clamp,
+              easing: Easing.bezier(0.16, 1, 0.3, 1),
+            },
+          ),
+        }}
+      >
+        <div style={{ fontSize: 100, fontWeight: 900, lineHeight: 1 }}>
+          {LEADER.lastName.toUpperCase()}
+        </div>
+        <div
+          style={{
+            fontSize: 300,
+            fontWeight: 900,
+            lineHeight: 1,
+            color: "#FFD54A",
+            textShadow: "0 0 40px rgba(255,213,74,0.35)",
+          }}
+        >
+          +{GAP_P1_P2}
+        </div>
+        <RedTag style={{ fontSize: 70, marginTop: 10 }}>
+          ТИТУЛ УЖЕ РЕШЁН?
+        </RedTag>
+      </AbsoluteFill>
+
+      <AbsoluteFill name="Go" style={{ top: 1560, alignItems: "center" }}>
+        <RedTag
+          style={{
+            fontSize: 96,
+            opacity: interpolate(
+              frame,
+              [LIGHTS_OUT, LIGHTS_OUT + 3],
+              [0, 1],
+              clamp,
+            ),
+            scale: interpolate(frame, [LIGHTS_OUT, LIGHTS_OUT + 8], [1.6, 1], {
+              ...clamp,
+              easing: Easing.bezier(0.16, 1, 0.3, 1),
+            }),
+          }}
+        >
+          ПОЕХАЛИ!
+        </RedTag>
+      </AbsoluteFill>
+
+      <AbsoluteFill
+        name="Flash"
+        style={{
+          backgroundColor: "#fff",
+          opacity: interpolate(
+            frame,
+            [LIGHTS_OUT, LIGHTS_OUT + 2, LIGHTS_OUT + 10],
+            [0, 0.5, 0],
+            clamp,
+          ),
+        }}
+      />
+    </AbsoluteFill>
+  );
+};

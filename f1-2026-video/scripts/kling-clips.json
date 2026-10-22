@@ -1,0 +1,25 @@
+{
+  "negative_prompt": "text, letters, numbers, logos, watermark, brand names, sponsor decals, recognizable faces, deformed cars, extra wheels",
+  "clips": [
+    {
+      "id": "start",
+      "duration": "5",
+      "prompt": "Cinematic low-angle shot on a floodlit motor-racing grid at night: a gantry of five red starting lights above the track switches off and a pack of generic open-wheel race cars in teal, red, blue and orange liveries launches forward, tyre smoke, heat haze, motion blur, dramatic contrast, vertical framing"
+    },
+    {
+      "id": "night-race",
+      "duration": "10",
+      "prompt": "Tracking aerial shot following generic open-wheel race cars in teal, red, blue and orange liveries racing through a floodlit street circuit at night beside a city waterfront, sparks from the floor, glowing light trails, cinematic, vertical framing"
+    },
+    {
+      "id": "champagne",
+      "duration": "5",
+      "prompt": "Slow-motion close-up of champagne spraying into the air above a motorsport podium under floodlights, golden confetti falling, warm bokeh, celebration atmosphere, no people visible, vertical framing"
+    },
+    {
+      "id": "finish",
+      "duration": "5",
+      "prompt": "A black-and-white chequered flag waving in slow motion in the foreground while a generic teal open-wheel race car crosses the finish line at dusk, motion blur, lens flare, cinematic, vertical framing"
+    }
+  ]
+}
