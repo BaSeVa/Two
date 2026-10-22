@@ -19,6 +19,7 @@ import {
   clamp,
 } from "../theme";
 import { KlingClip } from "../KlingClip";
+import { RaceLoop3D } from "../three/Backdrops";
 
 export const PER_ROUND = 36;
 // Доля этапа, за которую строки меняются местами; остаток — пауза
@@ -93,7 +94,7 @@ export const Season: React.FC = () => {
   return (
     <AbsoluteFill name="Season">
       <RaceBackground speed={done ? 0.4 : 2} />
-      <KlingClip id="night-race" opacity={0.22} />
+      <KlingClip id="night-race" opacity={0.28} fallback={<RaceLoop3D />} />
 
       <AbsoluteFill
         name="Header"

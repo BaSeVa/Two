@@ -20,7 +20,7 @@
 ```console
 npm i
 npm run dev                         # превью в Remotion Studio
-npx remotion render F1DriversChampionship2026 out/f1-2026.mp4
+npx remotion render F1DriversChampionship2026 out/f1-2026.mp4 --gl=angle   # без GPU: --gl=swangle
 npx remotion still Cover out/cover.png   # обложка 1080×1920
 python3 scripts/make_sfx.py         # пересобрать эффекты public/sfx.wav (тайминги берутся из сцен)
 node scripts/generate-soundtrack.mjs 60   # музыка из ElevenLabs → public/soundtrack.mp3
@@ -31,6 +31,20 @@ node scripts/generate-soundtrack.mjs 60   # музыка из ElevenLabs → pub
 `scripts/generate-soundtrack.mjs` вызывает ElevenLabs Music API и сохраняет трек в `public/soundtrack.mp3`.
 Нужна переменная окружения `ELEVENLABS_API_KEY`. Если файл есть, видео играет музыку и приглушённые
 эффекты поверх неё; если нет — только синтезированные эффекты.
+
+## 3D-фоны
+
+Под графикой трёх сцен идут 3D-сцены на React Three Fiber (`src/three/`): низкополигональные болиды в цветах
+команд топ-6 на ночной трассе, без имён и логотипов. Всё анимируется от кадра Remotion.
+
+| Сцена видео | 3D-фон | Что в кадре |
+|---|---|---|
+| Стартовые огни | `StartGrid3D` | решётка стоит, на «огни погасли» болиды уходят со старта |
+| Этап за этапом | `RaceLoop3D` | камера летит за пелотоном, болиды меняются местами |
+| Финал | `Finish3D` | три болида пересекают клетчатую линию финиша |
+
+Каждый фон можно открыть отдельно в Studio (папка `Backdrops3D`). Для рендера нужен WebGL:
+`--gl=angle` на машине с GPU, `--gl=swangle` без него (медленнее).
 
 ## Видеовставки Kling
 
@@ -46,7 +60,7 @@ node scripts/generate-soundtrack.mjs 60   # музыка из ElevenLabs → pub
 | `finish` | финал | клетчатый флаг на финише |
 
 Клипы лежат под графикой с затемнением, данные FIA рисует только Remotion. В промптах нет реальных
-пилотов, логотипов и надписей — болиды обезличенные, в цветах команд. Пока клипа нет, сцена идёт на обычном фоне.
+пилотов, логотипов и надписей — болиды обезличенные, в цветах команд. Если клип есть, он заменяет 3D-фон этой сцены; если нет — играет 3D.
 
 ```console
 node scripts/generate-kling-clips.mjs              # все клипы

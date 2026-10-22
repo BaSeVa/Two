@@ -19,6 +19,7 @@ import {
   clamp,
 } from "../theme";
 import { KlingClip } from "../KlingClip";
+import { Finish3D } from "../three/Backdrops";
 
 export const OUTRO_DURATION = 192;
 
@@ -34,7 +35,7 @@ export const Outro: React.FC = () => {
   return (
     <AbsoluteFill name="Outro">
       <RaceBackground speed={1.2} />
-      <KlingClip id="finish" opacity={0.35} />
+      <KlingClip id="finish" opacity={0.45} fallback={<Finish3D />} />
 
       <Checkered
         width={1400}

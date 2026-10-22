@@ -10,6 +10,7 @@ import {
   clamp,
 } from "../theme";
 import { KlingClip } from "../KlingClip";
+import { StartGrid3D } from "../three/Backdrops";
 
 export const INTRO_DURATION = 110;
 const LIGHT_STEP = 12;
@@ -56,6 +57,7 @@ export const Intro: React.FC = () => {
       <RaceBackground speed={out ? 2.5 : 0.4} />
       <KlingClip
         id="start"
+        fallback={<StartGrid3D lightsOut={LIGHTS_OUT} />}
         opacity={interpolate(
           frame,
           [LIGHTS_OUT - 10, LIGHTS_OUT],
