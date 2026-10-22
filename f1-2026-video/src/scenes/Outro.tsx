@@ -18,6 +18,7 @@ import {
   TEXT,
   clamp,
 } from "../theme";
+import { KlingClip } from "../KlingClip";
 
 export const OUTRO_DURATION = 192;
 
@@ -33,6 +34,7 @@ export const Outro: React.FC = () => {
   return (
     <AbsoluteFill name="Outro">
       <RaceBackground speed={1.2} />
+      <KlingClip id="finish" opacity={0.35} />
 
       <Checkered
         width={1400}

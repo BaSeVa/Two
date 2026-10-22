@@ -31,3 +31,24 @@ node scripts/generate-soundtrack.mjs 60   # музыка из ElevenLabs → pub
 `scripts/generate-soundtrack.mjs` вызывает ElevenLabs Music API и сохраняет трек в `public/soundtrack.mp3`.
 Нужна переменная окружения `ELEVENLABS_API_KEY`. Если файл есть, видео играет музыку и приглушённые
 эффекты поверх неё; если нет — только синтезированные эффекты.
+
+## Видеовставки Kling
+
+`scripts/generate-kling-clips.mjs` генерирует через Kling API (text-to-video, 9:16) атмосферные клипы
+из `scripts/kling-clips.json` и сохраняет их в `public/kling/<id>.mp4`. Нужны `KLING_ACCESS_KEY` и
+`KLING_SECRET_KEY`; модель и режим меняются через `KLING_MODEL` (по умолчанию `kling-v1-6`) и `KLING_MODE` (`std` | `pro`).
+
+| Клип | Сцена | Что в кадре |
+|---|---|---|
+| `start` | стартовые огни | огни гаснут, пелотон уходит со старта |
+| `night-race` | этап за этапом | ночная уличная трасса |
+| `champagne` | подиум | шампанское и конфетти |
+| `finish` | финал | клетчатый флаг на финише |
+
+Клипы лежат под графикой с затемнением, данные FIA рисует только Remotion. В промптах нет реальных
+пилотов, логотипов и надписей — болиды обезличенные, в цветах команд. Пока клипа нет, сцена идёт на обычном фоне.
+
+```console
+node scripts/generate-kling-clips.mjs              # все клипы
+node scripts/generate-kling-clips.mjs champagne    # один клип
+```

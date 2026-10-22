@@ -3,6 +3,7 @@ import { AbsoluteFill, Easing, interpolate, useCurrentFrame } from "remotion";
 import { Car } from "../Car";
 import { STANDINGS, TEAM_COLORS } from "../data";
 import { FONT, MUTED, RaceBackground, RedTag, TEXT, clamp } from "../theme";
+import { KlingClip } from "../KlingClip";
 
 export const PODIUM_DURATION = 200;
 
@@ -22,6 +23,7 @@ export const Podium: React.FC = () => {
   return (
     <AbsoluteFill name="Podium">
       <RaceBackground speed={0.5} />
+      <KlingClip id="champagne" opacity={0.4} />
 
       <AbsoluteFill
         name="Header"

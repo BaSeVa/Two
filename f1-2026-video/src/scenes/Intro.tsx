@@ -9,6 +9,7 @@ import {
   TEXT,
   clamp,
 } from "../theme";
+import { KlingClip } from "../KlingClip";
 
 export const INTRO_DURATION = 110;
 const LIGHT_STEP = 12;
@@ -53,6 +54,15 @@ export const Intro: React.FC = () => {
   return (
     <AbsoluteFill name="Intro">
       <RaceBackground speed={out ? 2.5 : 0.4} />
+      <KlingClip
+        id="start"
+        opacity={interpolate(
+          frame,
+          [LIGHTS_OUT - 10, LIGHTS_OUT],
+          [0.25, 0.6],
+          clamp,
+        )}
+      />
 
       <AbsoluteFill name="Lights" style={{ alignItems: "center", top: 260 }}>
         <div
