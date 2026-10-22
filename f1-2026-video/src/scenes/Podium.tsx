@@ -4,6 +4,7 @@ import { Car } from "../Car";
 import { STANDINGS, TEAM_COLORS } from "../data";
 import { FONT, MUTED, RaceBackground, RedTag, TEXT, clamp } from "../theme";
 import { KlingClip } from "../KlingClip";
+import { Podium3D } from "../three/Backdrops";
 
 export const PODIUM_DURATION = 200;
 
@@ -23,7 +24,7 @@ export const Podium: React.FC = () => {
   return (
     <AbsoluteFill name="Podium">
       <RaceBackground speed={0.5} />
-      <KlingClip id="champagne" opacity={0.4} />
+      <KlingClip id="champagne" opacity={0.5} fallback={<Podium3D />} />
 
       <AbsoluteFill
         name="Header"

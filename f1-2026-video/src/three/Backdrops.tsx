@@ -1,5 +1,6 @@
 import { ThreeCanvas } from "@remotion/three";
 import React from "react";
+import { DoubleSide } from "three";
 import { useCurrentFrame, useVideoConfig } from "remotion";
 import { STANDINGS, TEAM_COLORS } from "../data";
 import { Car3D } from "./Car3D";
@@ -106,6 +107,104 @@ export const Finish3D: React.FC = () => {
             position={[lane, 0, z]}
             distance={(frame - at) * speed}
           />
+        );
+      })}
+    </Canvas>
+  );
+};
+
+// Подиум: болиды топ-3 на ступенях, конфетти и медленный облёт камеры
+const PODIUM_STEPS = [
+  { place: 1, x: 0, height: 2.2 },
+  { place: 2, x: -3.6, height: 1.5 },
+  { place: 3, x: 3.6, height: 1.0 },
+];
+const CONFETTI_COLORS = ["#FFD54A", "#f2f2f2", "#E10600", "#00D7B6"];
+// Детерминированный «случайный» разброс, чтобы кадры рендерились одинаково
+const rand = (i: number, salt: number) => {
+  const v = Math.sin(i * 127.1 + salt * 311.7) * 43758.5453;
+  return v - Math.floor(v);
+};
+const CONFETTI = Array.from({ length: 140 }, (_, i) => ({
+  x: (rand(i, 1) - 0.5) * 16,
+  z: (rand(i, 2) - 0.5) * 10,
+  phase: rand(i, 3) * 14,
+  fall: 0.03 + rand(i, 4) * 0.04,
+  spin: 0.05 + rand(i, 5) * 0.15,
+  color: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
+}));
+
+export const Podium3D: React.FC = () => {
+  const frame = useCurrentFrame();
+  const orbit = -0.25 + frame * 0.0025;
+  return (
+    <Canvas>
+      <CameraRig
+        // камера смотрит ниже подиума, чтобы он встал в верхнюю, свободную от графики часть кадра
+        position={[Math.sin(orbit) * 19, 5, Math.cos(orbit) * 19]}
+        lookAt={[0, -3.5, 0]}
+        fov={60}
+      />
+      <ambientLight intensity={0.35} color="#9fb4ff" />
+      <hemisphereLight args={["#c9d6ff", "#120c0c", 0.5]} />
+      <directionalLight position={[6, 12, 8]} intensity={1.5} />
+      <directionalLight position={[0, 6, 16]} intensity={1.1} />
+      <spotLight
+        position={[0, 14, 4]}
+        angle={0.5}
+        penumbra={0.6}
+        intensity={120}
+        color="#fff2cc"
+      />
+
+      <mesh rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[80, 80]} />
+        <meshStandardMaterial color="#121218" roughness={0.6} metalness={0.3} />
+      </mesh>
+
+      {PODIUM_STEPS.map(({ place, x, height }) => {
+        const color = TEAM_COLORS[STANDINGS[place - 1].team];
+        return (
+          <group key={place} position={[x, 0, 0]}>
+            <mesh position={[0, height / 2, 0]}>
+              <boxGeometry args={[3.4, height, 5.8]} />
+              <meshStandardMaterial color="#2b2d3a" roughness={0.5} />
+            </mesh>
+            {/* цветная кромка ступени */}
+            <mesh position={[0, height + 0.01, 2.85]}>
+              <boxGeometry args={[3.4, 0.04, 0.12]} />
+              <meshStandardMaterial
+                color={color}
+                emissive={color}
+                emissiveIntensity={0.8}
+              />
+            </mesh>
+            <group
+              position={[0, height, 0]}
+              rotation={[0, Math.PI + (x === 0 ? 0 : x > 0 ? -0.25 : 0.25), 0]}
+            >
+              <Car3D color={color} />
+            </group>
+          </group>
+        );
+      })}
+
+      {CONFETTI.map((c, i) => {
+        const y = 12 - ((frame * c.fall + c.phase) % 12);
+        return (
+          <mesh
+            key={i}
+            position={[c.x, y, c.z]}
+            rotation={[frame * c.spin, frame * c.spin * 0.7, i]}
+          >
+            <planeGeometry args={[0.14, 0.24]} />
+            <meshStandardMaterial
+              color={c.color}
+              side={DoubleSide}
+              emissive={c.color}
+              emissiveIntensity={0.3}
+            />
+          </mesh>
         );
       })}
     </Canvas>
