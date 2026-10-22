@@ -210,3 +210,141 @@ export const Podium3D: React.FC = () => {
     </Canvas>
   );
 };
+
+// Вид с дрона: трасса по диагонали кадра, пелотон из шести болидов
+export const Aerial3D: React.FC = () => {
+  const frame = useCurrentFrame();
+  const speed = 1.4;
+  const travelled = frame * speed;
+  return (
+    <Canvas>
+      <CameraRig
+        position={[2 + frame * 0.01, 46, 14]}
+        lookAt={[0, 0, -6]}
+        fov={50}
+      />
+      <group rotation={[0, 0.45, 0]}>
+        <Track scroll={travelled} from={-140} to={140} />
+        {GRID_COLORS.map((color, i) => {
+          const lane = [-3, 0, 3][i % 3];
+          const z = 8 - i * 7 + Math.sin(frame / 60 + i * 1.3) * 4;
+          return (
+            <Car3D
+              key={i}
+              color={color}
+              position={[lane + Math.sin(frame / 45 + i) * 0.5, 0, z]}
+              distance={travelled}
+            />
+          );
+        })}
+      </group>
+    </Canvas>
+  );
+};
+
+// Пит-лейн: болиды команд из середины и конца зачёта стоят у боксов, камера едет вдоль
+const MIDFIELD_COLORS = [
+  ...new Set(STANDINGS.slice(10).map((d) => TEAM_COLORS[d.team])),
+];
+
+export const PitLane3D: React.FC = () => {
+  const frame = useCurrentFrame();
+  const dolly = frame * 0.14;
+  const BOX = 9;
+  return (
+    <Canvas>
+      <CameraRig
+        position={[3.5, 3.2, 14 - dolly]}
+        lookAt={[-4.5, 0.6, -6 - dolly]}
+        fov={55}
+      />
+      <ambientLight intensity={0.35} color="#9fb4ff" />
+      <hemisphereLight args={["#c9d6ff", "#120c0c", 0.5]} />
+      <directionalLight position={[8, 14, 6]} intensity={1.2} />
+
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, -40]}>
+        <planeGeometry args={[60, 160]} />
+        <meshStandardMaterial color="#26272d" roughness={0.9} />
+      </mesh>
+      {/* стена пит-лейна с подсветкой */}
+      <mesh position={[6, 0.6, -40]}>
+        <boxGeometry args={[0.4, 1.2, 160]} />
+        <meshStandardMaterial color="#1c1d24" />
+      </mesh>
+      <mesh position={[5.78, 1.0, -40]}>
+        <boxGeometry args={[0.02, 0.08, 160]} />
+        <meshStandardMaterial
+          color="#E10600"
+          emissive="#E10600"
+          emissiveIntensity={1.5}
+        />
+      </mesh>
+      {/* белая линия пит-лейна */}
+      <mesh position={[-1.5, 0.01, -40]}>
+        <boxGeometry args={[0.15, 0.02, 160]} />
+        <meshStandardMaterial color="#d9d9d9" />
+      </mesh>
+
+      {MIDFIELD_COLORS.map((color, i) => {
+        const z = 6 - i * BOX;
+        return (
+          <group key={color}>
+            {/* бокс: стены и светящийся проём */}
+            <mesh position={[-11, 2.5, z]}>
+              <boxGeometry args={[4, 5, BOX - 0.4]} />
+              <meshStandardMaterial color="#17181f" />
+            </mesh>
+            <mesh position={[-8.98, 2.2, z]}>
+              <boxGeometry args={[0.02, 3.6, BOX - 2]} />
+              <meshStandardMaterial
+                color="#3a3426"
+                emissive="#ffe2a8"
+                emissiveIntensity={0.18}
+              />
+            </mesh>
+            <mesh position={[-8.97, 4.4, z]}>
+              <boxGeometry args={[0.03, 0.35, BOX - 2]} />
+              <meshStandardMaterial
+                color={color}
+                emissive={color}
+                emissiveIntensity={1.2}
+              />
+            </mesh>
+            <group position={[-4.8, 0, z]} rotation={[0, -0.55, 0]}>
+              <Car3D color={color} />
+            </group>
+          </group>
+        );
+      })}
+    </Canvas>
+  );
+};
+
+// Обгон: болид лидера формы проходит соперников, камера низко сбоку
+export const Overtake3D: React.FC<{ colors: string[] }> = ({ colors }) => {
+  const frame = useCurrentFrame();
+  const speed = 1.7;
+  const travelled = frame * speed;
+  return (
+    <Canvas>
+      <CameraRig position={[6.5, 2.2, 6]} lookAt={[-0.5, 0.6, -10]} fov={52} />
+      <Track scroll={travelled} />
+      {colors.map((color, i) => {
+        // первый цвет — лидер формы: стартует сзади и уходит вперёд
+        const z =
+          i === 0
+            ? 10 - frame * 0.22
+            : -4 - i * 6 + Math.sin(frame / 60 + i) * 1.5;
+        const lane = i === 0 ? -2.4 : [0, 1.6, 2.6][(i - 1) % 3];
+        return (
+          <Car3D
+            key={i}
+            color={color}
+            position={[lane, 0, z]}
+            distance={travelled}
+          />
+        );
+      })}
+    </Canvas>
+  );
+};

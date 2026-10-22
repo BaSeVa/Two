@@ -1,6 +1,8 @@
 import React from "react";
 import { AbsoluteFill, Easing, interpolate, useCurrentFrame } from "remotion";
 import { STANDINGS, TEAM_COLORS } from "../data";
+import { Backdrop } from "../KlingClip";
+import { PitLane3D } from "../three/Backdrops";
 import { FONT, MUTED, RaceBackground, RedTag, TEXT, clamp } from "../theme";
 
 export const FIELD_DURATION = 180;
@@ -15,6 +17,9 @@ export const Field: React.FC = () => {
   return (
     <AbsoluteFill name="Field">
       <RaceBackground speed={0.8} />
+      <Backdrop opacity={0.35}>
+        <PitLane3D />
+      </Backdrop>
 
       <AbsoluteFill
         name="Header"

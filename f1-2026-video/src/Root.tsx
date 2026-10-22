@@ -8,7 +8,15 @@ import { Outro, OUTRO_DURATION } from "./scenes/Outro";
 import { Podium, PODIUM_DURATION } from "./scenes/Podium";
 import { Season, SEASON_DURATION } from "./scenes/Season";
 import { Trend, TREND_DURATION } from "./scenes/Trend";
-import { Finish3D, Podium3D, RaceLoop3D, StartGrid3D } from "./three/Backdrops";
+import {
+  Aerial3D,
+  Finish3D,
+  Overtake3D,
+  PitLane3D,
+  Podium3D,
+  RaceLoop3D,
+  StartGrid3D,
+} from "./three/Backdrops";
 import { FPS, HEIGHT, WIDTH, fontsLoaded } from "./theme";
 
 // Шрифты подгружаются до первого кадра
@@ -82,6 +90,27 @@ export const RemotionRoot: React.FC = () => {
           id="RaceLoop3D"
           component={RaceLoop3D}
           durationInFrames={SEASON_DURATION}
+          {...common}
+        />
+        <Composition
+          id="Aerial3D"
+          component={Aerial3D}
+          durationInFrames={TREND_DURATION}
+          {...common}
+        />
+        <Composition
+          id="PitLane3D"
+          component={PitLane3D}
+          durationInFrames={FIELD_DURATION}
+          {...common}
+        />
+        <Composition
+          id="Overtake3D"
+          component={Overtake3D}
+          durationInFrames={FORM_DURATION}
+          defaultProps={{
+            colors: ["#3671C6", "#00D7B6", "#E8002D", "#00D7B6"],
+          }}
           {...common}
         />
         <Composition

@@ -34,3 +34,19 @@ export const KlingClip: React.FC<{
     </AbsoluteFill>
   );
 };
+
+// 3D-фон без варианта из Kling: то же затемнение, что и у вставок
+export const Backdrop: React.FC<{
+  opacity: number;
+  children: React.ReactNode;
+}> = ({ opacity, children }) => (
+  <AbsoluteFill style={{ opacity }}>
+    {children}
+    <AbsoluteFill
+      style={{
+        background:
+          "linear-gradient(180deg, rgba(11,11,16,0.55), rgba(11,11,16,0.2) 40%, rgba(11,11,16,0.75))",
+      }}
+    />
+  </AbsoluteFill>
+);

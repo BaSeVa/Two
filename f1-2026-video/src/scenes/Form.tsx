@@ -1,6 +1,8 @@
 import React from "react";
 import { AbsoluteFill, Easing, interpolate, useCurrentFrame } from "remotion";
 import { Car } from "../Car";
+import { Backdrop } from "../KlingClip";
+import { Overtake3D } from "../three/Backdrops";
 import { ROUND_POINTS, ROUNDS, STANDINGS, TEAM_COLORS } from "../data";
 import {
   ASPHALT,
@@ -29,6 +31,7 @@ const FORM = STANDINGS.map((d) => ({
 }))
   .sort((a, b) => b.points - a.points || a.driver.pos - b.driver.pos)
   .slice(0, SHOWN);
+const FORM_COLORS = FORM.slice(0, 4).map((f) => TEAM_COLORS[f.driver.team]);
 const MAX = FORM[0].points;
 const FIRST_ROUND = ROUNDS[ROUNDS.length - LAST];
 const LAST_ROUND = ROUNDS[ROUNDS.length - 1];
@@ -39,6 +42,9 @@ export const Form: React.FC = () => {
   return (
     <AbsoluteFill name="Form">
       <RaceBackground speed={1.2} />
+      <Backdrop opacity={0.35}>
+        <Overtake3D colors={FORM_COLORS} />
+      </Backdrop>
 
       <AbsoluteFill
         name="Header"

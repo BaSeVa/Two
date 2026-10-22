@@ -1,6 +1,8 @@
 import React from "react";
 import { AbsoluteFill, Easing, interpolate, useCurrentFrame } from "remotion";
 import { ROUND_POINTS, ROUNDS, STANDINGS, TEAM_COLORS } from "../data";
+import { Backdrop } from "../KlingClip";
+import { Aerial3D } from "../three/Backdrops";
 import { FONT, MUTED, RaceBackground, RedTag, TEXT, clamp } from "../theme";
 
 export const TREND_DURATION = 270;
@@ -63,6 +65,9 @@ export const Trend: React.FC = () => {
   return (
     <AbsoluteFill name="Trend">
       <RaceBackground speed={0.7} />
+      <Backdrop opacity={0.3}>
+        <Aerial3D />
+      </Backdrop>
 
       <AbsoluteFill
         name="Header"
