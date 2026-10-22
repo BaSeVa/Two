@@ -1,119 +1,235 @@
 import { ThreeCanvas } from "@remotion/three";
 import React from "react";
-import { DoubleSide } from "three";
-import { useCurrentFrame, useVideoConfig } from "remotion";
+import { DoubleSide, Vector3 } from "three";
+import { AbsoluteFill, useCurrentFrame, useVideoConfig } from "remotion";
 import { STANDINGS, TEAM_COLORS } from "../data";
+import { CameraRig } from "./camera";
 import { Car3D } from "./Car3D";
-import { CameraRig, Track } from "./Track";
+import {
+  CircuitScene,
+  FINISH_S,
+  NightLights,
+  ROAD_WIDTH,
+  Sparks,
+  TyreSmoke,
+  curvatureAt,
+  distanceAfter,
+  nearestS,
+  poseAt,
+  shake,
+  speedAt,
+} from "./Circuit";
+
+const FPS = 30;
 
 // Цвета команд первых шести пилотов зачёта — без имён и логотипов
 const GRID_COLORS = STANDINGS.slice(0, 6).map((d) => TEAM_COLORS[d.team]);
 
-const Canvas: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+const Canvas: React.FC<{
+  children: React.ReactNode;
+  fog?: [number, number];
+}> = ({ children, fog = [70, 1100] }) => {
   const { width, height } = useVideoConfig();
   return (
-    <ThreeCanvas width={width} height={height} gl={{ antialias: true }}>
-      <color attach="background" args={["#0B0B10"]} />
-      <fog attach="fog" args={["#0B0B10", 25, 130]} />
-      {children}
-    </ThreeCanvas>
+    <AbsoluteFill>
+      <ThreeCanvas
+        width={width}
+        height={height}
+        shadows="soft"
+        gl={{ antialias: true }}
+      >
+        <color attach="background" args={["#0b0c14"]} />
+        <fog attach="fog" args={["#0b0c14", ...fog]} />
+        {children}
+      </ThreeCanvas>
+      {/* виньетка: затемняет края кадра, как у телетрансляции */}
+      <AbsoluteFill
+        style={{
+          background:
+            "radial-gradient(ellipse at 50% 45%, rgba(0,0,0,0) 55%, rgba(0,0,0,0.55) 100%)",
+        }}
+      />
+    </AbsoluteFill>
   );
 };
 
-// Стартовая решётка: до lightsOut машины стоят, потом уходят со старта
+const v3 = (p: Vector3, dy = 0): [number, number, number] => [
+  p.x,
+  p.y + dy,
+  p.z,
+];
+
+// Болид на трассе: положение, наклон при разгоне/торможении, крен и руль в повороте
+const RaceCar: React.FC<{
+  color: string;
+  s: number;
+  lane: number;
+  launch?: number;
+}> = ({ color, s, lane, launch }) => {
+  const { pos, rotation } = poseAt(s, lane);
+  const v = speedAt(s);
+  const accel = ((speedAt(s + 6) - speedAt(s - 6)) / 12) * v;
+  const kappa = curvatureAt(s);
+  const pitch = launch ?? Math.max(-0.035, Math.min(0.025, accel * 0.0011));
+  const roll = Math.max(-0.045, Math.min(0.045, -v * v * kappa * 0.0012));
+  return (
+    <Car3D
+      color={color}
+      position={v3(pos)}
+      rotation={rotation}
+      distance={s}
+      pitch={pitch}
+      roll={roll}
+      steer={Math.max(-0.3, Math.min(0.3, kappa * 22))}
+    />
+  );
+};
+
+const carState = (s: number) => {
+  const { pos, tangent } = poseAt(s);
+  return { pos, tangent, speed: speedAt(s) };
+};
+
+// ---------- Старт: решётка стоит, на «огни погасли» срывается с места ----------
+
+const gridSlot = (i: number) => ({
+  s: FINISH_S - (8 + i * 8 + (i % 2) * 4),
+  lane: i % 2 === 0 ? -3 : 3,
+});
+
 export const StartGrid3D: React.FC<{ lightsOut: number }> = ({ lightsOut }) => {
   const frame = useCurrentFrame();
-  const t = Math.max(0, frame - lightsOut) / 30;
+  const t = Math.max(0, frame - lightsOut) / FPS;
+  const cam = poseAt(FINISH_S - 72 + t * 6, 4.5);
+  const look = poseAt(FINISH_S - 14 + t * 14, 0);
+  const sh = shake(frame, frame >= lightsOut ? 0.08 : 0.005);
+  const smokeSpots = GRID_COLORS.map((_, i) => {
+    const { s, lane } = gridSlot(i);
+    return v3(poseAt(s - 1.6, lane).pos);
+  });
   return (
     <Canvas>
       <CameraRig
-        position={[4.5 - t * 0.6, 2.4 + t * 0.4, 26 - t * 4]}
-        lookAt={[0, 0.6, 2 - t * 10]}
-        fov={58}
+        position={[cam.pos.x + sh[0], 3.4 + sh[1], cam.pos.z + sh[2]]}
+        lookAt={v3(look.pos, 0.9)}
+        fov={56}
       />
-      <Track />
+      <NightLights focus={v3(poseAt(FINISH_S - 30).pos)} />
+      <CircuitScene />
       {GRID_COLORS.map((color, i) => {
-        const row = Math.floor(i / 2);
-        const x = i % 2 === 0 ? -2.2 : 2.2;
-        const z = row * 9 + (i % 2) * 4.5;
-        // разгон с разным ускорением, чтобы машины растягивались
-        const a = 60 - i * 4;
+        const { s, lane } = gridSlot(i);
+        const a = 34 - i * 2.2;
         const d = 0.5 * a * t * t;
-        const idle = frame < lightsOut ? Math.sin(frame * 1.7 + i) * 0.006 : 0;
+        const idle = frame < lightsOut ? Math.sin(frame * 1.7 + i) * 0.004 : 0;
+        // при старте нос задирается, потом машина выравнивается
+        const launch = frame >= lightsOut ? 0.03 * Math.exp(-t * 2.5) : idle;
         return (
-          <Car3D
+          <RaceCar
             key={i}
             color={color}
-            position={[x, idle, z - d]}
-            distance={d}
+            s={s + d}
+            lane={lane}
+            launch={launch}
           />
         );
       })}
+      <TyreSmoke frame={frame} start={lightsOut} spots={smokeSpots} />
     </Canvas>
   );
 };
 
-// Гонка на прямой: камера летит за пелотоном, машины меняются местами
+// ---------- Этап за этапом: камера летит за пелотоном по кругу ----------
+
+const PACK_START = FINISH_S + 120;
+const packS = (i: number, t: number) =>
+  distanceAfter(PACK_START, t) -
+  8 -
+  i * 10 +
+  Math.sin(t * 0.45 + i * 1.7) * 6.5;
+const PACK_LANES = [-3.2, -1, 1.2, 3.2];
+
 export const RaceLoop3D: React.FC = () => {
   const frame = useCurrentFrame();
-  const speed = 1.6; // метров за кадр
-  const travelled = frame * speed;
+  const t = frame / FPS;
   const cars = GRID_COLORS.slice(0, 4);
+  const center = distanceAfter(PACK_START, t) - 22;
+  const cam = poseAt(center - 24, Math.sin(t * 0.4) * 2);
+  const look = poseAt(center + 12);
+  const sh = shake(frame, 0.05);
   return (
     <Canvas>
       <CameraRig
-        position={[Math.sin(frame / 90) * 1.5, 6.5, 8]}
-        lookAt={[0, 0.5, -16]}
+        position={[cam.pos.x + sh[0], 8 + sh[1], cam.pos.z + sh[2]]}
+        lookAt={v3(look.pos, 1)}
         fov={55}
       />
-      <Track scroll={travelled} />
-      {cars.map((color, i) => {
-        const lane = [-2.6, -0.9, 0.9, 2.6][i];
-        const z = -12 - i * 6 + Math.sin(frame / 70 + i * 1.9) * 5;
-        return (
-          <Car3D
-            key={i}
-            color={color}
-            position={[lane + Math.sin(frame / 50 + i) * 0.4, 0, z]}
-            distance={travelled}
-          />
-        );
-      })}
+      <NightLights focus={v3(poseAt(center).pos)} />
+      <CircuitScene />
+      {cars.map((color, i) => (
+        <RaceCar
+          key={i}
+          color={color}
+          s={packS(i, t)}
+          lane={PACK_LANES[i] + Math.sin(t * 0.6 + i) * 0.5}
+        />
+      ))}
+      <Sparks
+        frame={frame}
+        seed={1}
+        carAt={(f) => carState(packS(0, f / FPS))}
+      />
+      <Sparks
+        frame={frame}
+        seed={2}
+        carAt={(f) => carState(packS(2, f / FPS))}
+      />
     </Canvas>
   );
 };
 
-// Финишная линия сбоку: лидер и преследователи пролетают мимо камеры
+// ---------- Финиш: болиды пролетают клетчатую линию ----------
+
 export const Finish3D: React.FC = () => {
   const frame = useCurrentFrame();
-  const speed = 1.6;
+  const v = 80;
   const passes = [
-    { color: GRID_COLORS[0], at: 18, lane: -1.5 },
-    { color: GRID_COLORS[1], at: 70, lane: 1.8 },
-    { color: GRID_COLORS[2], at: 112, lane: -0.4 },
+    { color: GRID_COLORS[0], at: 18, lane: -2 },
+    { color: GRID_COLORS[1], at: 70, lane: 2.4 },
+    { color: GRID_COLORS[2], at: 112, lane: -0.5 },
   ];
+  const cam = poseAt(FINISH_S + 20, ROAD_WIDTH / 2 + 2.5);
+  const look = poseAt(FINISH_S - 12, -1);
   return (
     <Canvas>
-      <CameraRig position={[5.5, 1.3, -14]} lookAt={[-0.5, 0.6, 12]} fov={50} />
-      <Track finishAt={0} />
+      <CameraRig
+        position={v3(cam.pos, 1.5)}
+        lookAt={v3(look.pos, 0.9)}
+        fov={50}
+      />
+      <NightLights focus={v3(poseAt(FINISH_S).pos)} />
+      <CircuitScene />
       {passes.map(({ color, at, lane }) => {
-        // на кадре at машина пересекает линию финиша (z = 0) и летит к камере
-        const z = (at - frame) * speed;
-        if (z < -30 || z > 130) return null;
-        return (
-          <Car3D
-            key={at}
-            color={color}
-            position={[lane, 0, z]}
-            distance={(frame - at) * speed}
-          />
-        );
+        const s = FINISH_S + ((frame - at) * v) / FPS;
+        if (Math.abs(s - FINISH_S) > 140) return null;
+        return <RaceCar key={at} color={color} s={s} lane={lane} />;
       })}
+      {passes.map(({ at }, i) => (
+        <Sparks
+          key={at}
+          frame={frame}
+          seed={10 + i}
+          carAt={(f) => ({
+            ...carState(FINISH_S + ((f - at) * v) / FPS),
+            speed: v,
+          })}
+        />
+      ))}
     </Canvas>
   );
 };
 
-// Подиум: болиды топ-3 на ступенях, конфетти и медленный облёт камеры
+// ---------- Подиум: болиды топ-3 на ступенях, конфетти, облёт камеры ----------
+
 const PODIUM_STEPS = [
   { place: 1, x: 0, height: 2.2 },
   { place: 2, x: -3.6, height: 1.5 },
@@ -125,7 +241,7 @@ const rand = (i: number, salt: number) => {
   const v = Math.sin(i * 127.1 + salt * 311.7) * 43758.5453;
   return v - Math.floor(v);
 };
-const CONFETTI = Array.from({ length: 140 }, (_, i) => ({
+const CONFETTI = Array.from({ length: 160 }, (_, i) => ({
   x: (rand(i, 1) - 0.5) * 16,
   z: (rand(i, 2) - 0.5) * 10,
   phase: rand(i, 3) * 14,
@@ -138,57 +254,55 @@ export const Podium3D: React.FC = () => {
   const frame = useCurrentFrame();
   const orbit = -0.25 + frame * 0.0025;
   return (
-    <Canvas>
+    <Canvas fog={[22, 90]}>
       <CameraRig
         // камера смотрит ниже подиума, чтобы он встал в верхнюю, свободную от графики часть кадра
         position={[Math.sin(orbit) * 19, 5, Math.cos(orbit) * 19]}
         lookAt={[0, -3.5, 0]}
         fov={60}
       />
-      <ambientLight intensity={0.35} color="#9fb4ff" />
-      <hemisphereLight args={["#c9d6ff", "#120c0c", 0.5]} />
-      <directionalLight position={[6, 12, 8]} intensity={1.5} />
-      <directionalLight position={[0, 6, 16]} intensity={1.1} />
+      <NightLights focus={[0, 0, 0]} />
       <spotLight
         position={[0, 14, 4]}
         angle={0.5}
         penumbra={0.6}
-        intensity={120}
+        intensity={160}
         color="#fff2cc"
+        castShadow
       />
-
-      <mesh rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[80, 80]} />
-        <meshStandardMaterial color="#121218" roughness={0.6} metalness={0.3} />
+      <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+        <planeGeometry args={[400, 400]} />
+        <meshStandardMaterial
+          color="#121218"
+          roughness={0.35}
+          metalness={0.5}
+        />
       </mesh>
-
       {PODIUM_STEPS.map(({ place, x, height }) => {
         const color = TEAM_COLORS[STANDINGS[place - 1].team];
         return (
           <group key={place} position={[x, 0, 0]}>
-            <mesh position={[0, height / 2, 0]}>
+            <mesh position={[0, height / 2, 0]} castShadow receiveShadow>
               <boxGeometry args={[3.4, height, 5.8]} />
               <meshStandardMaterial color="#2b2d3a" roughness={0.5} />
             </mesh>
-            {/* цветная кромка ступени */}
+            {/* светящаяся кромка ступени */}
             <mesh position={[0, height + 0.01, 2.85]}>
               <boxGeometry args={[3.4, 0.04, 0.12]} />
               <meshStandardMaterial
                 color={color}
                 emissive={color}
-                emissiveIntensity={0.8}
+                emissiveIntensity={3}
               />
             </mesh>
-            <group
+            <Car3D
+              color={color}
               position={[0, height, 0]}
-              rotation={[0, Math.PI + (x === 0 ? 0 : x > 0 ? -0.25 : 0.25), 0]}
-            >
-              <Car3D color={color} />
-            </group>
+              rotation={Math.PI + (x === 0 ? 0 : x > 0 ? -0.25 : 0.25)}
+            />
           </group>
         );
       })}
-
       {CONFETTI.map((c, i) => {
         const y = 12 - ((frame * c.fall + c.phase) % 12);
         return (
@@ -202,7 +316,7 @@ export const Podium3D: React.FC = () => {
               color={c.color}
               side={DoubleSide}
               emissive={c.color}
-              emissiveIntensity={0.3}
+              emissiveIntensity={0.6}
             />
           </mesh>
         );
@@ -211,38 +325,39 @@ export const Podium3D: React.FC = () => {
   );
 };
 
-// Вид с дрона: трасса по диагонали кадра, пелотон из шести болидов
+// ---------- График сезона: вертолётный план над пелотоном в повороте ----------
+
+const AERIAL_START = nearestS(60, -350) - 260;
+
 export const Aerial3D: React.FC = () => {
   const frame = useCurrentFrame();
-  const speed = 1.4;
-  const travelled = frame * speed;
+  const t = frame / FPS;
+  const lead = distanceAfter(AERIAL_START, t);
+  const center = poseAt(lead - 20);
+  const orbit = 0.6 + t * 0.06;
   return (
     <Canvas>
       <CameraRig
-        position={[2 + frame * 0.01, 46, 14]}
-        lookAt={[0, 0, -6]}
+        position={[
+          center.pos.x + Math.sin(orbit) * 34,
+          44,
+          center.pos.z + Math.cos(orbit) * 34,
+        ]}
+        lookAt={v3(center.pos)}
         fov={50}
       />
-      <group rotation={[0, 0.45, 0]}>
-        <Track scroll={travelled} from={-140} to={140} />
-        {GRID_COLORS.map((color, i) => {
-          const lane = [-3, 0, 3][i % 3];
-          const z = 8 - i * 7 + Math.sin(frame / 60 + i * 1.3) * 4;
-          return (
-            <Car3D
-              key={i}
-              color={color}
-              position={[lane + Math.sin(frame / 45 + i) * 0.5, 0, z]}
-              distance={travelled}
-            />
-          );
-        })}
-      </group>
+      <NightLights focus={v3(center.pos)} />
+      <CircuitScene />
+      {GRID_COLORS.map((color, i) => {
+        const s = lead - i * 8 + Math.sin(t * 0.5 + i * 1.3) * 3;
+        return <RaceCar key={i} color={color} s={s} lane={[-3, 0, 3][i % 3]} />;
+      })}
     </Canvas>
   );
 };
 
-// Пит-лейн: болиды команд из середины и конца зачёта стоят у боксов, камера едет вдоль
+// ---------- Пелотон: пит-лейн с болидами команд из середины зачёта ----------
+
 const MIDFIELD_COLORS = [
   ...new Set(STANDINGS.slice(10).map((d) => TEAM_COLORS[d.team])),
 ];
@@ -258,16 +373,17 @@ export const PitLane3D: React.FC = () => {
         lookAt={[-4.5, 0.6, -6 - dolly]}
         fov={55}
       />
-      <ambientLight intensity={0.35} color="#9fb4ff" />
-      <hemisphereLight args={["#c9d6ff", "#120c0c", 0.5]} />
-      <directionalLight position={[8, 14, 6]} intensity={1.2} />
-
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, -40]}>
+      <NightLights focus={[-4, 0, -6 - dolly]} />
+      <mesh
+        rotation={[-Math.PI / 2, 0, 0]}
+        position={[0, 0, -40]}
+        receiveShadow
+      >
         <planeGeometry args={[60, 160]} />
-        <meshStandardMaterial color="#26272d" roughness={0.9} />
+        <meshStandardMaterial color="#1e1f25" roughness={0.6} metalness={0.2} />
       </mesh>
       {/* стена пит-лейна с подсветкой */}
-      <mesh position={[6, 0.6, -40]}>
+      <mesh position={[6, 0.6, -40]} castShadow receiveShadow>
         <boxGeometry args={[0.4, 1.2, 160]} />
         <meshStandardMaterial color="#1c1d24" />
       </mesh>
@@ -276,7 +392,7 @@ export const PitLane3D: React.FC = () => {
         <meshStandardMaterial
           color="#E10600"
           emissive="#E10600"
-          emissiveIntensity={1.5}
+          emissiveIntensity={4}
         />
       </mesh>
       {/* белая линия пит-лейна */}
@@ -284,13 +400,12 @@ export const PitLane3D: React.FC = () => {
         <boxGeometry args={[0.15, 0.02, 160]} />
         <meshStandardMaterial color="#d9d9d9" />
       </mesh>
-
       {MIDFIELD_COLORS.map((color, i) => {
         const z = 6 - i * BOX;
         return (
           <group key={color}>
-            {/* бокс: стены и светящийся проём */}
-            <mesh position={[-11, 2.5, z]}>
+            {/* бокс: стены, тёплый проём и полоса в цвет команды */}
+            <mesh position={[-11, 2.5, z]} receiveShadow>
               <boxGeometry args={[4, 5, BOX - 0.4]} />
               <meshStandardMaterial color="#17181f" />
             </mesh>
@@ -299,7 +414,7 @@ export const PitLane3D: React.FC = () => {
               <meshStandardMaterial
                 color="#3a3426"
                 emissive="#ffe2a8"
-                emissiveIntensity={0.18}
+                emissiveIntensity={0.25}
               />
             </mesh>
             <mesh position={[-8.97, 4.4, z]}>
@@ -307,12 +422,16 @@ export const PitLane3D: React.FC = () => {
               <meshStandardMaterial
                 color={color}
                 emissive={color}
-                emissiveIntensity={1.2}
+                emissiveIntensity={3}
               />
             </mesh>
-            <group position={[-4.8, 0, z]} rotation={[0, -0.55, 0]}>
-              <Car3D color={color} />
-            </group>
+            <pointLight
+              position={[-7, 3.5, z]}
+              intensity={6}
+              distance={10}
+              color="#ffe2a8"
+            />
+            <Car3D color={color} position={[-4.8, 0, z]} rotation={-0.55} />
           </group>
         );
       })}
@@ -320,58 +439,90 @@ export const PitLane3D: React.FC = () => {
   );
 };
 
-// Обгон: болид лидера формы проходит соперников, камера низко сбоку
+// ---------- Кто в форме: болид лидера формы проходит соперников ----------
+
+const BACK_STRAIGHT = nearestS(210, 0) - 160;
+
 export const Overtake3D: React.FC<{ colors: string[] }> = ({ colors }) => {
   const frame = useCurrentFrame();
-  const speed = 1.7;
-  const travelled = frame * speed;
+  const t = frame / FPS;
+  const base = distanceAfter(BACK_STRAIGHT, t);
+  const cam = poseAt(base - 34 + t * 2, -ROAD_WIDTH / 2 - 2);
+  const look = poseAt(base + 14, 1);
+  const sh = shake(frame, 0.04);
+  const others = [1.6, 3.4, 0.2];
+  // первый цвет — лидер формы: стартует позади и набирает по 6 м/с
+  const leaderS = base - 30 + t * 6;
   return (
     <Canvas>
-      <CameraRig position={[6.5, 2.2, 6]} lookAt={[-0.5, 0.6, -10]} fov={52} />
-      <Track scroll={travelled} />
-      {colors.map((color, i) => {
-        // первый цвет — лидер формы: стартует сзади и уходит вперёд
-        const z =
-          i === 0
-            ? 10 - frame * 0.22
-            : -4 - i * 6 + Math.sin(frame / 60 + i) * 1.5;
-        const lane = i === 0 ? -2.4 : [0, 1.6, 2.6][(i - 1) % 3];
-        return (
-          <Car3D
+      <CameraRig
+        position={[cam.pos.x + sh[0], 3 + sh[1], cam.pos.z + sh[2]]}
+        lookAt={v3(look.pos, 0.8)}
+        fov={48}
+      />
+      <NightLights focus={v3(poseAt(base).pos)} />
+      <CircuitScene />
+      {colors.map((color, i) =>
+        i === 0 ? (
+          <RaceCar key={i} color={color} s={leaderS} lane={-3} />
+        ) : (
+          <RaceCar
             key={i}
             color={color}
-            position={[lane, 0, z]}
-            distance={travelled}
+            s={base - (i - 1) * 9}
+            lane={others[(i - 1) % 3]}
           />
-        );
-      })}
+        ),
+      )}
+      <Sparks
+        frame={frame}
+        seed={21}
+        carAt={(f) =>
+          carState(distanceAfter(BACK_STRAIGHT, f / FPS) - 30 + (f / FPS) * 6)
+        }
+      />
     </Canvas>
   );
 };
 
-// Обложка: болиды лидирующих команд летят на камеру, низкий ракурс снизу вверх
+// ---------- Обложка: болиды лидирующих команд летят на камеру ----------
+
 const HERO = [
-  { team: "Mercedes", x: 0.2, z: -1 },
-  { team: "Ferrari", x: -2.8, z: -7 },
-  { team: "McLaren", x: 2.8, z: -12 },
-  { team: "Red Bull", x: -0.6, z: -18 },
+  { team: "Mercedes", ds: -6, lane: 0.4 },
+  { team: "Ferrari", ds: -14, lane: -3 },
+  { team: "McLaren", ds: -21, lane: 3 },
+  { team: "Red Bull", ds: -29, lane: -0.8 },
 ] as const;
 
-export const CoverHero3D: React.FC = () => (
-  <Canvas>
-    <CameraRig position={[2.2, 1.0, 11]} lookAt={[0, 2.3, -8]} fov={56} />
-    <Track scroll={0} from={-200} to={40} />
-    <spotLight
-      position={[0, 10, 12]}
-      angle={0.6}
-      penumbra={0.5}
-      intensity={160}
-      color="#fff2cc"
-    />
-    {HERO.map(({ team, x, z }) => (
-      <group key={team} position={[x, 0, z]} rotation={[0, Math.PI, 0]}>
-        <Car3D color={TEAM_COLORS[team]} />
-      </group>
-    ))}
-  </Canvas>
-);
+export const CoverHero3D: React.FC = () => {
+  const cam = poseAt(FINISH_S + 6, 1.8);
+  const look = poseAt(FINISH_S - 20, 0);
+  const lead = FINISH_S + HERO[0].ds;
+  return (
+    <Canvas>
+      <CameraRig
+        position={v3(cam.pos, 1.0)}
+        lookAt={v3(look.pos, 2.4)}
+        fov={56}
+      />
+      <NightLights focus={v3(poseAt(lead).pos)} />
+      <CircuitScene />
+      {HERO.map(({ team, ds, lane }) => (
+        <RaceCar
+          key={team}
+          color={TEAM_COLORS[team]}
+          s={FINISH_S + ds}
+          lane={lane}
+        />
+      ))}
+      <Sparks
+        frame={40}
+        seed={5}
+        carAt={(f) => ({
+          ...carState(lead + ((f - 40) * 82) / FPS),
+          speed: 82,
+        })}
+      />
+    </Canvas>
+  );
+};
