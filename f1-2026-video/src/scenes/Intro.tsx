@@ -9,6 +9,7 @@ import {
   TEXT,
   clamp,
 } from "../theme";
+import { GAP_P1_P2, LEADER } from "../data";
 import { KlingClip } from "../KlingClip";
 import { StartGrid3D } from "../three/Backdrops";
 
@@ -16,6 +17,9 @@ export const INTRO_DURATION = 110;
 const LIGHT_STEP = 12;
 const FIRST_LIGHT = 14;
 const LIGHTS_OUT = FIRST_LIGHT + LIGHT_STEP * 4 + 18;
+// Крючок для TikTok: главный факт с первого кадра, затем его сменяет заголовок
+const HOOK_OUT = 40;
+const TITLE_IN = HOOK_OUT + 6;
 
 export const LightPod: React.FC<{ on: boolean }> = ({ on }) => (
   <div
@@ -102,7 +106,12 @@ export const Intro: React.FC = () => {
             fontStyle: "italic",
             color: MUTED,
             letterSpacing: 4,
-            opacity: interpolate(frame, [0, 14], [0, 1], clamp),
+            opacity: interpolate(
+              frame,
+              [TITLE_IN, TITLE_IN + 14],
+              [0, 1],
+              clamp,
+            ),
           }}
         >
           FORMULA 1 · СЕЗОН 2026
@@ -115,10 +124,15 @@ export const Intro: React.FC = () => {
             fontWeight: 900,
             fontStyle: "italic",
             textAlign: "center",
-            translate: interpolate(frame, [0, 18], ["-900px 0px", "0px 0px"], {
-              ...clamp,
-              easing: Easing.bezier(0.16, 1, 0.3, 1),
-            }),
+            translate: interpolate(
+              frame,
+              [TITLE_IN, TITLE_IN + 18],
+              ["-1100px 0px", "0px 0px"],
+              {
+                ...clamp,
+                easing: Easing.bezier(0.16, 1, 0.3, 1),
+              },
+            ),
           }}
         >
           ГОНКА ЗА
@@ -131,14 +145,58 @@ export const Intro: React.FC = () => {
             fontStyle: "italic",
             textAlign: "center",
             color: RED,
-            translate: interpolate(frame, [4, 22], ["900px 0px", "0px 0px"], {
-              ...clamp,
-              easing: Easing.bezier(0.16, 1, 0.3, 1),
-            }),
+            translate: interpolate(
+              frame,
+              [TITLE_IN + 4, TITLE_IN + 22],
+              ["1100px 0px", "0px 0px"],
+              {
+                ...clamp,
+                easing: Easing.bezier(0.16, 1, 0.3, 1),
+              },
+            ),
           }}
         >
           ЧЕМПИОНСТВОМ
         </div>
+      </AbsoluteFill>
+
+      <AbsoluteFill
+        name="Hook"
+        style={{
+          top: 760,
+          alignItems: "center",
+          fontFamily: FONT,
+          fontStyle: "italic",
+          color: TEXT,
+          opacity: interpolate(frame, [HOOK_OUT, HOOK_OUT + 6], [1, 0], clamp),
+          scale: interpolate(
+            frame,
+            [0, 6, HOOK_OUT, HOOK_OUT + 6],
+            [1.07, 1, 1, 1.2],
+            {
+              ...clamp,
+              easing: Easing.bezier(0.16, 1, 0.3, 1),
+            },
+          ),
+        }}
+      >
+        <div style={{ fontSize: 100, fontWeight: 900, lineHeight: 1 }}>
+          {LEADER.lastName.toUpperCase()}
+        </div>
+        <div
+          style={{
+            fontSize: 300,
+            fontWeight: 900,
+            lineHeight: 1,
+            color: "#FFD54A",
+            textShadow: "0 0 40px rgba(255,213,74,0.35)",
+          }}
+        >
+          +{GAP_P1_P2}
+        </div>
+        <RedTag style={{ fontSize: 70, marginTop: 10 }}>
+          ТИТУЛ УЖЕ РЕШЁН?
+        </RedTag>
       </AbsoluteFill>
 
       <AbsoluteFill name="Go" style={{ top: 1560, alignItems: "center" }}>

@@ -110,6 +110,8 @@ def ding(level: float) -> np.ndarray:
 
 
 season_done = starts["Season"] + 20 + rounds * per_round
+add(thump(0.9), at(1))  # крючок на первом кадре
+add(ding(0.1), at(1))
 add(thump(0.8), at(80))  # огни погасли
 add(thump(0.7), at(season_done))  # финал «этап за этапом»
 add(ding(0.12), at(season_done))
