@@ -1,4 +1,5 @@
-import { Composition, Folder } from "remotion";
+import { Composition, Folder, Still } from "remotion";
+import { Cover } from "./Cover";
 import { F1Video, F1_VIDEO_DURATION } from "./F1Video";
 import { Field, FIELD_DURATION } from "./scenes/Field";
 import { Form, FORM_DURATION } from "./scenes/Form";
@@ -23,6 +24,7 @@ export const RemotionRoot: React.FC = () => {
         durationInFrames={F1_VIDEO_DURATION}
         {...common}
       />
+      <Still id="Cover" component={Cover} width={WIDTH} height={HEIGHT} />
       <Folder name="Scenes">
         <Composition
           id="Intro"

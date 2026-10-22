@@ -113,7 +113,7 @@ export const Intro: React.FC = () => {
         </div>
         <div
           style={{
-            fontSize: 132,
+            fontSize: 104,
             lineHeight: 1.05,
             fontWeight: 900,
             fontStyle: "italic",
@@ -125,9 +125,7 @@ export const Intro: React.FC = () => {
             }),
           }}
         >
-          КУБОК
-          <br />
-          ПИЛОТОВ
+          ЧЕМПИОНСТВОМ
         </div>
       </AbsoluteFill>
 

@@ -1,7 +1,9 @@
-# F1 2026 — гонка за Кубок пилотов (9:16)
+# F1 2026 — гонка за чемпионством (9:16)
 
 Вертикальное видео 1080×1920, 30 fps, 60 с, сделано на [Remotion](https://www.remotion.dev).
 Готовый ролик: [`../videos/гонка-за-чемпионством.mp4`](../videos/гонка-за-чемпионством.mp4).
+Обложка для TikTok: [`../videos/гонка-за-чемпионством-обложка.png`](../videos/гонка-за-чемпионством-обложка.png),
+название, описание и хештеги: [`../videos/гонка-за-чемпионством-tiktok.txt`](../videos/гонка-за-чемпионством-tiktok.txt).
 
 Сцены: стартовые огни → гонка топ-10 этап за этапом (17 этапов) → график сезона топ-6 → пелотон P11–P23 → подиум топ-3 → «кто в форме» (последние 5 этапов) → отрыв лидера и следующий этап.
 
@@ -19,6 +21,7 @@
 npm i
 npm run dev                         # превью в Remotion Studio
 npx remotion render F1DriversChampionship2026 out/f1-2026.mp4
+npx remotion still Cover out/cover.png   # обложка 1080×1920
 python3 scripts/make_sfx.py         # пересобрать эффекты public/sfx.wav (тайминги берутся из сцен)
 node scripts/generate-soundtrack.mjs 60   # музыка из ElevenLabs → public/soundtrack.mp3
 ```
