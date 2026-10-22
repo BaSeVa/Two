@@ -1,17 +1,48 @@
-"""Синтезирует звуковую дорожку public/sfx.wav: сигналы стартовых огней, рёв мотора и акценты.
+"""Синтезирует звуковые эффекты public/sfx.wav: сигналы стартовых огней, рёв мотора на старте и акценты.
 
-Тайминги рассчитаны на 30 fps и порядок сцен в src/F1Video.tsx.
+Тайминги берутся из исходников сцен (константы *_DURATION, PER_ROUND и порядок SCENES в src/F1Video.tsx),
+поэтому после изменения длительностей достаточно перезапустить скрипт.
 Запуск: python3 scripts/make_sfx.py
 """
 
+import re
 import wave
 from pathlib import Path
 
 import numpy as np
 
+ROOT = Path(__file__).resolve().parent.parent
+SRC = ROOT / "src"
 SR = 44100
 FPS = 30
-TOTAL = 898 / FPS  # длительность F1DriversChampionship2026
+TRANSITION = 14
+
+
+def const(file: str, name: str) -> int:
+    text = (SRC / file).read_text(encoding="utf-8")
+    return int(re.search(rf"export const {name} = (\d+);", text).group(1))
+
+
+order = re.findall(r'name: "(\w+)"', (SRC / "F1Video.tsx").read_text(encoding="utf-8"))
+durations = {
+    "Intro": const("scenes/Intro.tsx", "INTRO_DURATION"),
+    "Field": const("scenes/Field.tsx", "FIELD_DURATION"),
+    "Trend": const("scenes/Trend.tsx", "TREND_DURATION"),
+    "Podium": const("scenes/Podium.tsx", "PODIUM_DURATION"),
+    "Form": const("scenes/Form.tsx", "FORM_DURATION"),
+    "Outro": const("scenes/Outro.tsx", "OUTRO_DURATION"),
+}
+per_round = const("scenes/Season.tsx", "PER_ROUND")
+rounds = len(re.search(r"export const ROUNDS = \[(.*?)\];", (SRC / "data.ts").read_text(encoding="utf-8"), re.S).group(1).split(",")) - 1
+durations["Season"] = 20 + rounds * per_round + 60
+
+starts = {}
+cursor = 0
+for name in order:
+    starts[name] = cursor
+    cursor += durations[name] - TRANSITION
+TOTAL_FRAMES = cursor + TRANSITION
+TOTAL = TOTAL_FRAMES / FPS
 
 t = np.arange(int(SR * TOTAL)) / SR
 out = np.zeros_like(t)
@@ -34,18 +65,18 @@ for k in range(5):
     env = np.minimum(1, tt / 0.005) * np.exp(-tt * 18)
     add(0.35 * np.sin(2 * np.pi * 1046 * tt) * env, at(14 + 12 * k))
 
-# Мотор: старт на «огни погасли» (80-й кадр), переключения передач, затем сброс газа
+# Мотор: старт на «огни погасли» (80-й кадр), переключения передач, затем уходит под музыку
 lights_out = at(80)
 rpm = np.zeros_like(t)
-gears = [0.7, 0.9, 1.1, 1.3, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0]
-cursor = lights_out
+gears = [0.7, 0.9, 1.1, 1.3, 1.5, 1.6, 1.7]
+cursor_t = lights_out
 for g in gears:
-    m = (t >= cursor) & (t < cursor + g)
-    x = (t[m] - cursor) / g
+    m = (t >= cursor_t) & (t < cursor_t + g)
+    x = (t[m] - cursor_t) / g
     rpm[m] = 0.45 + 0.55 * (1 - (1 - x) ** 2)
-    cursor += g
-decel = t >= cursor
-rpm[decel] = 0.45 + 0.55 * np.exp(-(t[decel] - cursor) * 0.9)
+    cursor_t += g
+decel = t >= cursor_t
+rpm[decel] = 0.45 + 0.55 * np.exp(-(t[decel] - cursor_t) * 0.9)
 rpm[t < lights_out] = 0
 
 freq = 70 + 230 * rpm
@@ -57,8 +88,8 @@ engine = np.tanh(1.6 * (engine + 0.6 * noise * rpm))
 
 vol = np.interp(
     t,
-    [lights_out, lights_out + 0.25, at(480), at(480) + 2.5, TOTAL],
-    [0.0, 0.32, 0.26, 0.0, 0.0],
+    [lights_out, lights_out + 0.25, lights_out + 6, lights_out + 9, TOTAL],
+    [0.0, 0.32, 0.24, 0.0, 0.0],
 )
 vol[t < lights_out] = 0
 out += engine * vol
@@ -78,21 +109,24 @@ def ding(level: float) -> np.ndarray:
     return level * tone * np.exp(-tt * 4)
 
 
+season_done = starts["Season"] + 20 + rounds * per_round
 add(thump(0.8), at(80))  # огни погасли
-add(thump(0.7), at(480))  # финал «этап за этапом»
-add(ding(0.12), at(480))
-add(thump(0.7), at(642 + 28))  # P1 на подиуме
-add(thump(0.9), at(778 + 12))  # «+102»
-add(ding(0.12), at(778 + 12))
+add(thump(0.7), at(season_done))  # финал «этап за этапом»
+add(ding(0.12), at(season_done))
+add(thump(0.6), at(starts["Trend"] + 200))  # график дорисован
+add(thump(0.7), at(starts["Podium"] + 28))  # P1 на подиуме
+add(thump(0.6), at(starts["Form"] + 120))  # «лучший за 5 этапов»
+add(thump(0.9), at(starts["Outro"] + 12))  # «+102»
+add(ding(0.12), at(starts["Outro"] + 12))
 
 out = np.clip(out / max(1.0, np.abs(out).max() / 0.9), -1, 1)
 pcm = (out * 32767).astype(np.int16)
 stereo = np.repeat(pcm[:, None], 2, axis=1)
 
-dest = Path(__file__).resolve().parent.parent / "public" / "sfx.wav"
+dest = ROOT / "public" / "sfx.wav"
 with wave.open(str(dest), "wb") as w:
     w.setnchannels(2)
     w.setsampwidth(2)
     w.setframerate(SR)
     w.writeframes(stereo.tobytes())
-print(f"wrote {dest} ({TOTAL:.2f}s)")
+print(f"wrote {dest} ({TOTAL:.2f}s, {TOTAL_FRAMES} frames)")

@@ -1,10 +1,12 @@
 import { Composition, Folder } from "remotion";
 import { F1Video, F1_VIDEO_DURATION } from "./F1Video";
 import { Field, FIELD_DURATION } from "./scenes/Field";
+import { Form, FORM_DURATION } from "./scenes/Form";
 import { Intro, INTRO_DURATION } from "./scenes/Intro";
 import { Outro, OUTRO_DURATION } from "./scenes/Outro";
 import { Podium, PODIUM_DURATION } from "./scenes/Podium";
 import { Season, SEASON_DURATION } from "./scenes/Season";
+import { Trend, TREND_DURATION } from "./scenes/Trend";
 import { FPS, HEIGHT, WIDTH, fontsLoaded } from "./theme";
 
 // Шрифты подгружаются до первого кадра
@@ -35,6 +37,12 @@ export const RemotionRoot: React.FC = () => {
           {...common}
         />
         <Composition
+          id="Trend"
+          component={Trend}
+          durationInFrames={TREND_DURATION}
+          {...common}
+        />
+        <Composition
           id="Field"
           component={Field}
           durationInFrames={FIELD_DURATION}
@@ -44,6 +52,12 @@ export const RemotionRoot: React.FC = () => {
           id="Podium"
           component={Podium}
           durationInFrames={PODIUM_DURATION}
+          {...common}
+        />
+        <Composition
+          id="Form"
+          component={Form}
+          durationInFrames={FORM_DURATION}
           {...common}
         />
         <Composition

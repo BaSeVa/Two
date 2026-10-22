@@ -41,6 +41,8 @@ export type Driver = {
 
 export const STANDINGS_AFTER = "ПОСЛЕ ГРАН-ПРИ СИНГАПУРА";
 export const RACES_LEFT = 6;
+// Следующий этап — по расписанию FIA «2026 United States Grand Prix — Timetable»
+export const NEXT_RACE = "ГРАН-ПРИ США · 23–25 ОКТЯБРЯ";
 export const SOURCE_NOTE =
   "Источник: FIA · 2026 Singapore Grand Prix · Doc 91 «Championship Points»";
 

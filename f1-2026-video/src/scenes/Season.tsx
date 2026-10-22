@@ -19,12 +19,12 @@ import {
   clamp,
 } from "../theme";
 
-export const PER_ROUND = 22;
+export const PER_ROUND = 36;
 // Доля этапа, за которую строки меняются местами; остаток — пауза
 const MOVE = 0.6;
 const START = 20;
 export const SEASON_END = START + ROUNDS.length * PER_ROUND;
-export const SEASON_DURATION = SEASON_END + 40;
+export const SEASON_DURATION = SEASON_END + 60;
 
 const VISIBLE = 10;
 const ROW_TOP = 400;

@@ -10,7 +10,7 @@ import {
   clamp,
 } from "../theme";
 
-export const INTRO_DURATION = 100;
+export const INTRO_DURATION = 110;
 const LIGHT_STEP = 12;
 const FIRST_LIGHT = 14;
 const LIGHTS_OUT = FIRST_LIGHT + LIGHT_STEP * 4 + 18;

@@ -1,6 +1,13 @@
 import React from "react";
 import { AbsoluteFill, Easing, interpolate, useCurrentFrame } from "remotion";
-import { GAP_P1_P2, LEADER, RACES_LEFT, SOURCE_NOTE, STANDINGS } from "../data";
+import {
+  GAP_P1_P2,
+  LEADER,
+  NEXT_RACE,
+  RACES_LEFT,
+  SOURCE_NOTE,
+  STANDINGS,
+} from "../data";
 import {
   Checkered,
   FONT,
@@ -12,7 +19,7 @@ import {
   clamp,
 } from "../theme";
 
-export const OUTRO_DURATION = 120;
+export const OUTRO_DURATION = 192;
 
 const pop = (frame: number, start: number) =>
   interpolate(frame, [start, start + 14], [0, 1], {
@@ -109,6 +116,25 @@ export const Outro: React.FC = () => {
           }}
         >
           БОРЬБА <span style={{ color: RED }}>ПРОДОЛЖАЕТСЯ</span>
+        </div>
+      </AbsoluteFill>
+
+      <AbsoluteFill
+        name="NextRace"
+        style={{
+          top: 1420,
+          alignItems: "center",
+          fontFamily: FONT,
+          fontStyle: "italic",
+          opacity: pop(frame, 70),
+          translate: `0px ${(1 - pop(frame, 70)) * 40}px`,
+        }}
+      >
+        <div style={{ fontSize: 34, fontWeight: 800, color: MUTED }}>
+          СЛЕДУЮЩИЙ ЭТАП
+        </div>
+        <div style={{ fontSize: 52, fontWeight: 900, color: TEXT }}>
+          {NEXT_RACE}
         </div>
       </AbsoluteFill>
 

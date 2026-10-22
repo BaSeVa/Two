@@ -4,7 +4,7 @@ import { Car } from "../Car";
 import { STANDINGS, TEAM_COLORS } from "../data";
 import { FONT, MUTED, RaceBackground, RedTag, TEXT, clamp } from "../theme";
 
-export const PODIUM_DURATION = 150;
+export const PODIUM_DURATION = 200;
 
 const BASE_Y = 1560;
 const SLOTS = [

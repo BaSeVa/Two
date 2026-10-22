@@ -3,7 +3,7 @@ import { AbsoluteFill, Easing, interpolate, useCurrentFrame } from "remotion";
 import { STANDINGS, TEAM_COLORS } from "../data";
 import { FONT, MUTED, RaceBackground, RedTag, TEXT, clamp } from "../theme";
 
-export const FIELD_DURATION = 150;
+export const FIELD_DURATION = 180;
 
 const REST = STANDINGS.slice(10);
 const ROW_TOP = 330;
