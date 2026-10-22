@@ -8,13 +8,13 @@ import { Field, FIELD_DURATION } from "./scenes/Field";
 import { Intro, INTRO_DURATION } from "./scenes/Intro";
 import { Outro, OUTRO_DURATION } from "./scenes/Outro";
 import { Podium, PODIUM_DURATION } from "./scenes/Podium";
-import { Race, RACE_DURATION } from "./scenes/Race";
+import { Season, SEASON_DURATION } from "./scenes/Season";
 
 const T = 14;
 
 export const F1_VIDEO_DURATION =
   INTRO_DURATION +
-  RACE_DURATION +
+  SEASON_DURATION +
   FIELD_DURATION +
   PODIUM_DURATION +
   OUTRO_DURATION -
@@ -31,8 +31,11 @@ export const F1Video: React.FC = () => (
         presentation={wipe({ direction: "from-left" })}
         timing={linearTiming({ durationInFrames: T })}
       />
-      <TransitionSeries.Sequence name="Race" durationInFrames={RACE_DURATION}>
-        <Race />
+      <TransitionSeries.Sequence
+        name="Season"
+        durationInFrames={SEASON_DURATION}
+      >
+        <Season />
       </TransitionSeries.Sequence>
       <TransitionSeries.Transition
         presentation={slide({ direction: "from-right" })}

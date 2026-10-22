@@ -11,7 +11,7 @@ import numpy as np
 
 SR = 44100
 FPS = 30
-TOTAL = 824 / FPS  # длительность F1DriversChampionship2026
+TOTAL = 898 / FPS  # длительность F1DriversChampionship2026
 
 t = np.arange(int(SR * TOTAL)) / SR
 out = np.zeros_like(t)
@@ -37,7 +37,7 @@ for k in range(5):
 # Мотор: старт на «огни погасли» (80-й кадр), переключения передач, затем сброс газа
 lights_out = at(80)
 rpm = np.zeros_like(t)
-gears = [0.7, 0.9, 1.1, 1.3, 1.5]
+gears = [0.7, 0.9, 1.1, 1.3, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0]
 cursor = lights_out
 for g in gears:
     m = (t >= cursor) & (t < cursor + g)
@@ -57,7 +57,7 @@ engine = np.tanh(1.6 * (engine + 0.6 * noise * rpm))
 
 vol = np.interp(
     t,
-    [lights_out, lights_out + 0.25, at(330), at(330) + 2.5, TOTAL],
+    [lights_out, lights_out + 0.25, at(480), at(480) + 2.5, TOTAL],
     [0.0, 0.32, 0.26, 0.0, 0.0],
 )
 vol[t < lights_out] = 0
@@ -79,11 +79,11 @@ def ding(level: float) -> np.ndarray:
 
 
 add(thump(0.8), at(80))  # огни погасли
-add(thump(0.7), at(86 + 244))  # лидер на финише
-add(ding(0.12), at(86 + 244))
-add(thump(0.7), at(568 + 28))  # P1 на подиуме
-add(thump(0.9), at(704 + 12))  # «+102»
-add(ding(0.12), at(704 + 12))
+add(thump(0.7), at(480))  # финал «этап за этапом»
+add(ding(0.12), at(480))
+add(thump(0.7), at(642 + 28))  # P1 на подиуме
+add(thump(0.9), at(778 + 12))  # «+102»
+add(ding(0.12), at(778 + 12))
 
 out = np.clip(out / max(1.0, np.abs(out).max() / 0.9), -1, 1)
 pcm = (out * 32767).astype(np.int16)

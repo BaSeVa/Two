@@ -4,7 +4,7 @@ import { Field, FIELD_DURATION } from "./scenes/Field";
 import { Intro, INTRO_DURATION } from "./scenes/Intro";
 import { Outro, OUTRO_DURATION } from "./scenes/Outro";
 import { Podium, PODIUM_DURATION } from "./scenes/Podium";
-import { Race, RACE_DURATION } from "./scenes/Race";
+import { Season, SEASON_DURATION } from "./scenes/Season";
 import { FPS, HEIGHT, WIDTH, fontsLoaded } from "./theme";
 
 // Шрифты подгружаются до первого кадра
@@ -29,9 +29,9 @@ export const RemotionRoot: React.FC = () => {
           {...common}
         />
         <Composition
-          id="Race"
-          component={Race}
-          durationInFrames={RACE_DURATION}
+          id="Season"
+          component={Season}
+          durationInFrames={SEASON_DURATION}
           {...common}
         />
         <Composition
