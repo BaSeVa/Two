@@ -1,8 +1,7 @@
 import React from "react";
 import { AbsoluteFill } from "remotion";
-import { Car } from "./Car";
-import { TEAM_COLORS } from "./data";
 import { LightPod } from "./scenes/Intro";
+import { CoverHero3D } from "./three/Backdrops";
 import {
   Checkered,
   FONT,
@@ -13,20 +12,22 @@ import {
   TEXT,
 } from "./theme";
 
-// Болиды на обложке: [команда, сдвиг по x, y]
-const GRID = [
-  ["Mercedes", 120, 0],
-  ["Ferrari", 430, 40],
-  ["McLaren", 30, 150],
-  ["Red Bull", 340, 190],
-] as const;
-
 // Обложка для TikTok без результатов: всё важное выше нижней четверти
 // и левее кнопок справа
 export const Cover: React.FC = () => {
   return (
     <AbsoluteFill name="Cover" style={{ fontFamily: FONT, color: TEXT }}>
       <RaceBackground speed={0} />
+      <AbsoluteFill name="Hero3D">
+        <CoverHero3D />
+        {/* затемнение сверху под заголовок, снизу под интерфейс TikTok */}
+        <AbsoluteFill
+          style={{
+            background:
+              "linear-gradient(180deg, rgba(11,11,16,0.85) 0%, rgba(11,11,16,0.55) 45%, rgba(11,11,16,0) 62%, rgba(11,11,16,0.1) 80%, rgba(11,11,16,0.8) 100%)",
+          }}
+        />
+      </AbsoluteFill>
 
       <Checkered
         width={1400}
@@ -86,26 +87,6 @@ export const Cover: React.FC = () => {
         >
           ЧЕМПИОНСТВОМ
         </div>
-      </AbsoluteFill>
-
-      <AbsoluteFill name="Cars" style={{ top: 1090, left: 70 }}>
-        {GRID.map(([team, x, y]) => (
-          <div
-            key={team}
-            style={{ position: "absolute", left: x, top: y, display: "flex" }}
-          >
-            <div
-              style={{
-                width: 220,
-                height: 4,
-                alignSelf: "center",
-                background: `linear-gradient(90deg, transparent, ${TEAM_COLORS[team]})`,
-                opacity: 0.6,
-              }}
-            />
-            <Car color={TEAM_COLORS[team]} width={250} />
-          </div>
-        ))}
       </AbsoluteFill>
 
       <AbsoluteFill name="Question" style={{ top: 1420, alignItems: "center" }}>

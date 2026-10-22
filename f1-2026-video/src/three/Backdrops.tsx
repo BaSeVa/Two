@@ -348,3 +348,30 @@ export const Overtake3D: React.FC<{ colors: string[] }> = ({ colors }) => {
     </Canvas>
   );
 };
+
+// Обложка: болиды лидирующих команд летят на камеру, низкий ракурс снизу вверх
+const HERO = [
+  { team: "Mercedes", x: 0.2, z: -1 },
+  { team: "Ferrari", x: -2.8, z: -7 },
+  { team: "McLaren", x: 2.8, z: -12 },
+  { team: "Red Bull", x: -0.6, z: -18 },
+] as const;
+
+export const CoverHero3D: React.FC = () => (
+  <Canvas>
+    <CameraRig position={[2.2, 1.0, 11]} lookAt={[0, 2.3, -8]} fov={56} />
+    <Track scroll={0} from={-200} to={40} />
+    <spotLight
+      position={[0, 10, 12]}
+      angle={0.6}
+      penumbra={0.5}
+      intensity={160}
+      color="#fff2cc"
+    />
+    {HERO.map(({ team, x, z }) => (
+      <group key={team} position={[x, 0, z]} rotation={[0, Math.PI, 0]}>
+        <Car3D color={TEAM_COLORS[team]} />
+      </group>
+    ))}
+  </Canvas>
+);
