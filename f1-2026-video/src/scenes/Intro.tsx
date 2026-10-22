@@ -15,7 +15,7 @@ const LIGHT_STEP = 12;
 const FIRST_LIGHT = 14;
 const LIGHTS_OUT = FIRST_LIGHT + LIGHT_STEP * 4 + 18;
 
-const LightPod: React.FC<{ on: boolean }> = ({ on }) => (
+export const LightPod: React.FC<{ on: boolean }> = ({ on }) => (
   <div
     style={{
       width: 136,

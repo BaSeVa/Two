@@ -1,13 +1,8 @@
 import React from "react";
 import { AbsoluteFill } from "remotion";
 import { Car } from "./Car";
-import {
-  GAP_P1_P2,
-  RACES_LEFT,
-  STANDINGS,
-  STANDINGS_AFTER,
-  TEAM_COLORS,
-} from "./data";
+import { TEAM_COLORS } from "./data";
+import { LightPod } from "./scenes/Intro";
 import {
   Checkered,
   FONT,
@@ -18,9 +13,16 @@ import {
   TEXT,
 } from "./theme";
 
-const MEDAL = ["#FFD54A", "#D7DCE2", "#E39A5B"];
+// Болиды на обложке: [команда, сдвиг по x, y]
+const GRID = [
+  ["Mercedes", 120, 0],
+  ["Ferrari", 430, 40],
+  ["McLaren", 30, 150],
+  ["Red Bull", 340, 190],
+] as const;
 
-// Обложка для TikTok: всё важное выше нижней четверти и левее кнопок справа
+// Обложка для TikTok без результатов: всё важное выше нижней четверти
+// и левее кнопок справа
 export const Cover: React.FC = () => {
   return (
     <AbsoluteFill name="Cover" style={{ fontFamily: FONT, color: TEXT }}>
@@ -30,10 +32,27 @@ export const Cover: React.FC = () => {
         width={1400}
         height={110}
         cell={28}
-        style={{ position: "absolute", left: -160, top: 120, rotate: "-6deg" }}
+        style={{ position: "absolute", left: -160, top: 110, rotate: "-6deg" }}
       />
 
-      <AbsoluteFill name="Title" style={{ top: 360, alignItems: "center" }}>
+      <AbsoluteFill name="Lights" style={{ top: 340, alignItems: "center" }}>
+        <div
+          style={{
+            width: 860,
+            height: 18,
+            backgroundColor: "#222",
+            borderRadius: 9,
+            marginBottom: -6,
+          }}
+        />
+        <div style={{ display: "flex", gap: 26 }}>
+          {[0, 1, 2, 3, 4].map((i) => (
+            <LightPod key={i} on />
+          ))}
+        </div>
+      </AbsoluteFill>
+
+      <AbsoluteFill name="Title" style={{ top: 680, alignItems: "center" }}>
         <div
           style={{
             fontSize: 52,
@@ -69,79 +88,28 @@ export const Cover: React.FC = () => {
         </div>
       </AbsoluteFill>
 
-      <AbsoluteFill
-        name="Top3"
-        style={{ top: 780, left: 70, width: 940, gap: 22 }}
-      >
-        {STANDINGS.slice(0, 3).map((d, i) => (
+      <AbsoluteFill name="Cars" style={{ top: 1090, left: 70 }}>
+        {GRID.map(([team, x, y]) => (
           <div
-            key={d.code}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              height: 150,
-              padding: "0 36px",
-              backgroundColor: "rgba(29,30,38,0.92)",
-              borderLeft: `14px solid ${TEAM_COLORS[d.team]}`,
-            }}
+            key={team}
+            style={{ position: "absolute", left: x, top: y, display: "flex" }}
           >
             <div
               style={{
-                width: 90,
-                fontSize: 96,
-                fontWeight: 900,
-                fontStyle: "italic",
-                color: MEDAL[i],
+                width: 220,
+                height: 4,
+                alignSelf: "center",
+                background: `linear-gradient(90deg, transparent, ${TEAM_COLORS[team]})`,
+                opacity: 0.6,
               }}
-            >
-              {d.pos}
-            </div>
-            <div style={{ flex: 1 }}>
-              <div
-                style={{ fontSize: 58, fontWeight: 900, fontStyle: "italic" }}
-              >
-                {d.lastName.toUpperCase()}
-              </div>
-              <div style={{ fontSize: 30, fontWeight: 700, color: MUTED }}>
-                {d.team.toUpperCase()}
-              </div>
-            </div>
-            <Car color={TEAM_COLORS[d.team]} width={124} />
-            <div
-              style={{
-                width: 190,
-                textAlign: "right",
-                fontSize: 80,
-                fontWeight: 900,
-                fontStyle: "italic",
-                color: i === 0 ? MEDAL[0] : TEXT,
-              }}
-            >
-              {d.points}
-            </div>
+            />
+            <Car color={TEAM_COLORS[team]} width={250} />
           </div>
         ))}
       </AbsoluteFill>
 
-      <AbsoluteFill
-        name="Tags"
-        style={{ top: 1330, alignItems: "center", gap: 26 }}
-      >
-        <RedTag style={{ fontSize: 76 }}>ОТРЫВ +{GAP_P1_P2}</RedTag>
-        <div
-          style={{
-            fontSize: 40,
-            fontWeight: 800,
-            fontStyle: "italic",
-            color: MUTED,
-            letterSpacing: 2,
-            textAlign: "center",
-          }}
-        >
-          {STANDINGS_AFTER}
-          <br />
-          ОСТАЛОСЬ {RACES_LEFT} ГОНОК
-        </div>
+      <AbsoluteFill name="Question" style={{ top: 1420, alignItems: "center" }}>
+        <RedTag style={{ fontSize: 68 }}>КТО ВОЗЬМЁТ ТИТУЛ?</RedTag>
       </AbsoluteFill>
     </AbsoluteFill>
   );
